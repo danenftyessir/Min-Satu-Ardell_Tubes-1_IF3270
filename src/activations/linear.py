@@ -1,11 +1,11 @@
-"""Linear Activation - f(x) = x."""
+"""aktivasi linear - f(x) = x."""
 
 import numpy as np
 from .base import BaseActivation
 
 
 class Linear(BaseActivation):
-    """Linear activation: f(x) = x"""
+    """aktivasi linear: f(x) = x"""
 
     def forward(self, x: np.ndarray) -> np.ndarray:
         """f(x) = x"""

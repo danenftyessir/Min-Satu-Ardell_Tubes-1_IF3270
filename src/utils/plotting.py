@@ -1,15 +1,3 @@
-"""
-Plotting Utilities Module
-==========================
-
-This module provides utility functions for plotting weight and gradient distributions.
-
-Functions:
-    plot_weight_distribution: Plot distribution of layer weights
-    plot_gradient_distribution: Plot distribution of layer gradients
-    plot_training_history: Plot training and validation loss curves
-"""
-
 import numpy as np
 import matplotlib.pyplot as plt
 from typing import List, Optional, Dict
@@ -22,20 +10,13 @@ def plot_weight_distribution(
     figsize: tuple = (15, 5)
 ) -> plt.Figure:
     """
-    Plot the distribution of weights for specified layers.
+    plot distribusi bobot untuk layer yang ditentukan.
 
-    Args:
-        weights: List of weight matrices for each layer
-        layer_indices: List of layer indices to plot (0-indexed). If None, plots all layers.
-        title: Title for the plot
-        figsize: Figure size (width, height)
-
-    Returns:
-        matplotlib Figure object
-
-    Example:
-        >>> fig = plot_weight_distribution(model.weights, layers=[0, 1, 2])
-        >>> plt.show()
+    argumen:
+        weights: daftar matriks bobot untuk setiap layer
+        layer_indices: daftar indeks layer yang akan diplot (0-indexed). jika None, plot semua layer.
+        title: judul untuk plot
+        figsize: ukuran figure (lebar, tinggi)
     """
     if layer_indices is None:
         layer_indices = list(range(len(weights)))
@@ -69,20 +50,13 @@ def plot_gradient_distribution(
     figsize: tuple = (15, 5)
 ) -> plt.Figure:
     """
-    Plot the distribution of gradients for specified layers.
+    plot distribusi gradien untuk layer yang ditentukan.
 
-    Args:
-        gradients: List of gradient arrays for each layer
-        layer_indices: List of layer indices to plot (0-indexed). If None, plots all layers.
-        title: Title for the plot
-        figsize: Figure size (width, height)
-
-    Returns:
-        matplotlib Figure object
-
-    Example:
-        >>> fig = plot_gradient_distribution(model.weight_gradients, layers=[0, 1, 2])
-        >>> plt.show()
+    argumen:
+        gradients: daftar array gradien untuk setiap layer
+        layer_indices: daftar indeks layer yang akan diplot (0-indexed). jika None, plot semua layer.
+        title: judul untuk plot
+        figsize: ukuran figure (lebar, tinggi)
     """
     if layer_indices is None:
         layer_indices = list(range(len(gradients)))
@@ -114,30 +88,22 @@ def plot_training_history(
     figsize: tuple = (10, 6)
 ) -> plt.Figure:
     """
-    Plot training and validation loss curves.
+    plot kurva loss training dan validasi.
 
-    Args:
-        history: Dictionary containing training history with keys:
-                - 'train_loss': List of training losses per epoch
-                - 'val_loss': List of validation losses per epoch (optional)
-        figsize: Figure size (width, height)
-
-    Returns:
-        matplotlib Figure object
-
-    Example:
-        >>> history = model.train(X_train, y_train, X_val, y_val, epochs=100)
-        >>> fig = plot_training_history(history)
-        >>> plt.show()
+    argumen:
+        history: dictionary yang berisi history training dengan kunci:
+                - 'train_loss': daftar loss training per epoch
+                - 'val_loss': daftar loss validasi per epoch (opsional)
+        figsize: ukuran figure (lebar, tinggi)
     """
     fig, ax = plt.subplots(figsize=figsize)
 
     epochs = range(1, len(history['train_loss']) + 1)
 
-    # Plot training loss
+    # plot training loss
     ax.plot(epochs, history['train_loss'], 'b-', label='Training Loss', linewidth=2)
 
-    # Plot validation loss if available
+    # plot validation loss jika tersedia
     if 'val_loss' in history and history['val_loss']:
         ax.plot(epochs, history['val_loss'], 'r-', label='Validation Loss', linewidth=2)
 
@@ -158,24 +124,12 @@ def plot_multiple_training_histories(
     figsize: tuple = (12, 6)
 ) -> plt.Figure:
     """
-    Plot multiple training histories for comparison.
+    plot beberapa history training untuk perbandingan.
 
-    Args:
-        histories: Dictionary where keys are model names and values are history dictionaries
-        metric: Which metric to plot ('train_loss' or 'val_loss')
-        figsize: Figure size (width, height)
-
-    Returns:
-        matplotlib Figure object
-
-    Example:
-        >>> histories = {
-        ...     'Model 1': history1,
-        ...     'Model 2': history2,
-        ...     'Model 3': history3
-        ... }
-        >>> fig = plot_multiple_training_histories(histories)
-        >>> plt.show()
+    argumen:
+        histories: dictionary di mana kunci adalah nama model dan nilai adalah dictionary history
+        metric: metrik yang akan diplot ('train_loss' atau 'val_loss')
+        figsize: ukuran figure (lebar, tinggi)
     """
     fig, ax = plt.subplots(figsize=figsize)
 

@@ -1,14 +1,3 @@
-"""
-Automatic Differentiation - Computational Graph Engine
-======================================================
-
-This module provides the computational graph engine for automatic differentiation.
-It manages the computational graph and handles gradient computation.
-
-Classes:
-    ComputationalGraph: Engine for managing computational graphs and automatic differentiation
-"""
-
 import numpy as np
 from typing import List, Dict, Any
 from .value import Value
@@ -16,19 +5,19 @@ from .value import Value
 
 class ComputationalGraph:
     """
-    Computational Graph Engine for automatic differentiation.
+    mesin graf komputasi untuk automatic differentiation.
 
-    This class manages the creation and execution of computational graphs
-    for neural networks with automatic differentiation capabilities.
+    kelas ini mengelola pembuatan dan eksekusi graf komputasi
+    untuk jaringan saraf dengan kemampuan automatic differentiation.
 
-    The engine tracks operations performed on Value objects and can
-    automatically compute gradients through backpropagation.
+    mesin melacak operasi yang dilakukan pada objek nilai dan dapat
+    secara otomatis menghitung gradien melalui backpropagation.
 
-    Attributes:
-        values: List of Value objects in the graph
-        operations: List of operations performed
+    atribut:
+        values: daftar objek nilai dalam graf
+        operations: daftar operasi yang dilakukan
 
-    Example:
+    contoh:
         >>> graph = ComputationalGraph()
         >>> x = graph.create_value(2.0, name='x')
         >>> y = graph.create_value(3.0, name='y')
@@ -38,20 +27,20 @@ class ComputationalGraph:
     """
 
     def __init__(self):
-        """Initialize the computational graph engine."""
+        """inisialisasi mesin graf komputasi."""
         self.values: List[Value] = []
         self.parameters: Dict[str, Value] = {}
 
     def create_value(self, data: float, name: str = None) -> Value:
         """
-        Create a new Value in the graph.
+        buat nilai baru dalam graf.
 
-        Args:
-            data: The scalar value
-            name: Optional name for the value
+        argumen:
+            data: nilai skalar
+            name: nama opsional untuk nilai
 
-        Returns:
-            New Value object
+        kembali:
+            objek nilai baru
         """
         value = Value(data)
         self.values.append(value)
@@ -63,47 +52,47 @@ class ComputationalGraph:
 
     def zero_grad(self) -> None:
         """
-        Zero out all gradients in the graph.
+        nol-kan semua gradien dalam graf.
 
-        This should be called before each backward pass to ensure
-        gradients are accumulated correctly.
+        ini harus dipanggil sebelum setiap propagasi mundur untuk memastikan
+        gradien terakumulasi dengan benar.
         """
         for value in self.values:
             value.grad = 0.0
 
     def get_parameters(self) -> List[Value]:
         """
-        Get all parameters (named values) in the graph.
+        dapatkan semua parameter (nilai bernama) dalam graf.
 
-        Returns:
-            List of Value objects representing parameters
+        kembali:
+            daftar objek nilai yang merepresentasikan parameter
         """
         return list(self.parameters.values())
 
     def get_parameter_values(self) -> Dict[str, float]:
         """
-        Get current values of all named parameters.
+        dapatkan nilai saat ini dari semua parameter bernama.
 
-        Returns:
-            Dictionary mapping parameter names to their values
+        kembali:
+            kamus yang memetakan nama parameter ke nilainya
         """
         return {name: value.data for name, value in self.parameters.items()}
 
     def get_parameter_gradients(self) -> Dict[str, float]:
         """
-        Get gradients of all named parameters.
+        dapatkan gradien dari semua parameter bernama.
 
-        Returns:
-            Dictionary mapping parameter names to their gradients
+        kembali:
+            kamus yang memetakan nama parameter ke gradiennya
         """
         return {name: value.grad for name, value in self.parameters.items()}
 
     def update_parameters(self, learning_rate: float) -> None:
         """
-        Update all parameters using gradient descent.
+        update semua parameter menggunakan gradient descent.
 
-        Args:
-            learning_rate: Learning rate for the update
+        argumen:
+            learning_rate: learning rate untuk update
         """
         for value in self.parameters.values():
             value.data -= learning_rate * value.grad

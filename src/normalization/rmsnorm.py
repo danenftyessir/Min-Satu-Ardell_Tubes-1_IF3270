@@ -1,112 +1,74 @@
-"""
-RMSNorm Normalization Module
-=============================
-
-This module provides the implementation of RMSNorm normalization.
-RMSNorm is a simplified normalization technique that normalizes by the RMS of inputs.
-
-Classes:
-    RMSNorm: Root Mean Square Normalization
-"""
-
 import numpy as np
 from .base import BaseNormalization
 
 
 class RMSNorm(BaseNormalization):
     """
-    Root Mean Square Normalization (RMSNorm).
+    rmsnorm menormalisasi input dengan membagi dengan root mean square
+    dari nilai input, lalu menskalakan dengan parameter gain yang dapat dipelajarin
 
-    RMSNorm normalizes the input by dividing by the root mean square
-    of the input values, then scales by a learnable gain parameter.
+    rumus: output = gain * (x / sqrt(mean(x^2) + epsilon))
 
-    Formula: output = gain * (x / sqrt(mean(x^2) + epsilon))
-
-    RMSNorm is simpler than LayerNorm and BatchNorm as it doesn't
-    center the data (subtract mean), making it computationally more efficient.
-
-    Attributes:
-        dim: Dimension of the input features
-        epsilon: Small constant for numerical stability
-        gain: Learnable scale parameter
-        gain_gradient: Gradient for the gain parameter
-
-    Example:
-        >>> norm = RMSNorm(dim=512)
-        >>> output = norm.forward(x)
-        >>> grad = norm.backward(grad_output)
+    attributes:
+        dim: dimensi dari fitur input
+        epsilon: konstanta kecil untuk stabilitas numerik
+        gain: parameter skala yang dapat dipelajari
+        gain_gradient: gradien untuk parameter gain
     """
 
     def __init__(self, dim: int, epsilon: float = 1e-8):
         """
-        Initialize RMSNorm.
-
-        Args:
-            dim: Dimension of input features
-            epsilon: Small constant for numerical stability
+        inisialisasi rmsnorm
+        dim: dimensi dari fitur input
+        epsilon: konstanta kecil untuk stabilitas numerik
         """
         self.dim = dim
         self.epsilon = epsilon
 
-        # Learnable gain parameter (initialized to 1)
+        # parameter gain yang dapat dipelajari (diinisialisasi ke 1)
         self.gain = np.ones(dim)
         self.gain_gradient = np.zeros(dim)
 
-        # Store for backward pass
+        # simpan untuk backward pass
         self.last_input = None
         self.last_rms = None
 
     def forward(self, x: np.ndarray, training: bool = True) -> np.ndarray:
         """
-        Apply RMSNorm normalization.
-
-        output = gain * (x / sqrt(mean(x^2, axis=-1, keepdims=True) + epsilon))
-
-        Args:
-            x: Input array of shape (batch_size, dim)
-            training: Whether in training mode (not used for RMSNorm but kept for consistency)
-
-        Returns:
-            Normalized array of same shape as input
+        output = gain * (x / sqrt(mean(x^2, axis=-1, keepdims=true) + epsilon))
+        x: array input dengan shape (batch_size, dim)
+        training: apakah dalam mode training (tidak digunakan untuk rmsnorm tapi dipertahankan untuk konsistensi)
         """
-        # Store input for backward pass
+        # simpan input untuk backward pass
         if training:
             self.last_input = x
 
-        # Compute RMS (Root Mean Square)
-        # RMS = sqrt(mean(x^2) + epsilon)
+        # hitung rms (root mean square)
+        # rms = sqrt(mean(x^2) + epsilon)
         mean_square = np.mean(x ** 2, axis=-1, keepdims=True)
         rms = np.sqrt(mean_square + self.epsilon)
 
         if training:
             self.last_rms = rms
 
-        # Normalize and scale
+        # normalisasi dan skala
         output = self.gain * (x / rms)
 
         return output
 
     def backward(self, grad: np.ndarray) -> np.ndarray:
-        """
-        Compute gradients for RMSNorm.
-
-        Args:
-            grad: Gradient from the next layer of shape (batch_size, dim)
-
-        Returns:
-            Gradient array with same shape as input
-        """
+        # hitung gradien untuk rmsnorm
         x = self.last_input
         rms = self.last_rms
         batch_size = x.shape[0]
 
-        # Gradient with respect to gain
+        # gradien terhadap gain
         # x_norm = x / rms
         x_norm = x / rms
         self.gain_gradient = np.sum(grad * x_norm, axis=0)
 
-        # Gradient with respect to x
-        # Using chain rule through the normalization operation
+        # gradien terhadap x
+        # menggunakan chain rule melalui operasi normalisasi
         # d/dx (gain * x / rms) = gain * (1/rms - x * x / (rms^3 * dim))
 
         term1 = grad * self.gain / rms

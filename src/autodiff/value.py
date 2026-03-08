@@ -1,56 +1,45 @@
-"""
-Automatic Differentiation - Value Module
-=========================================
-
-This module provides the Value class for automatic differentiation.
-This implementation is inspired by micrograd for building computational graphs.
-
-Classes:
-    Value: Scalar value that supports automatic differentiation
-"""
-
 import numpy as np
 from typing import Set, List, Tuple
 
 
 class Value:
     """
-    Value class for automatic differentiation.
+    kelas nilai untuk automatic differentiation.
 
-    This class represents a scalar value that can track operations and
-    automatically compute gradients using backpropagation. Inspired by
-    the micrograd library.
+    kelas ini merepresentasikan nilai skalar yang dapat melacak operasi dan
+    secara otomatis menghitung gradien menggunakan backpropagation. terinspirasi oleh
+    pustaka micrograd.
 
-    Each Value object stores:
-    - Its data (the actual value)
-    - Gradient (derivative with respect to some loss)
-    - References to children (operands that created this value)
-    - Operation that created this value
-    - Backward function to compute local gradient
+    setiap objek nilai menyimpan:
+    - data (nilai sebenarnya)
+    - gradien (turunan terhadap suatu loss)
+    - referensi ke children (operan yang membuat nilai ini)
+    - operasi yang membuat nilai ini
+    - fungsi backward untuk menghitung gradien lokal
 
-    Attributes:
-        data: The scalar value
-        grad: Gradient of this value
-        _prev: Set of child values that created this value
-        _op: Operation that created this value
-        _backward: Function to compute local gradient
+    atribut:
+        data: nilai skalar
+        grad: gradien dari nilai ini
+        _prev: himpunan nilai anak yang membuat nilai ini
+        _op: operasi yang membuat nilai ini
+        _backward: fungsi untuk menghitung gradien lokal
 
-    Example:
+    contoh:
         >>> x = Value(2.0)
         >>> y = Value(3.0)
         >>> z = x * y + x
         >>> z.backward()
-        >>> print(x.grad, y.grad)  # Should print 4.0 and 2.0
+        >>> print(x.grad, y.grad)  # seharusnya mencetak 4.0 dan 2.0
     """
 
     def __init__(self, data: float, _children: tuple = (), _op: str = ''):
         """
-        Initialize a Value object.
+        inisialisasi objek nilai.
 
-        Args:
-            data: The scalar value
-            _children: Tuple of child values (internal use)
-            _op: Operation that created this value (internal use)
+        argumen:
+            data: nilai skalar
+            _children: tupel dari nilai anak (penggunaan internal)
+            _op: operasi yang membuat nilai ini (penggunaan internal)
         """
         self.data = data
         self.grad = 0.0
@@ -60,13 +49,13 @@ class Value:
 
     def __add__(self, other: 'Value') -> 'Value':
         """
-        Addition operation.
+        operasi penjumlahan.
 
-        Args:
-            other: Another Value or scalar
+        argumen:
+            other: nilai atau skalar lain
 
-        Returns:
-            New Value representing the sum
+        kembali:
+            nilai baru yang merepresentasikan penjumlahan
         """
         other = other if isinstance(other, Value) else Value(other)
         out = Value(self.data + other.data, (self, other), '+')
@@ -79,18 +68,18 @@ class Value:
         return out
 
     def __radd__(self, other: 'Value') -> 'Value':
-        """Reverse addition (other + self)."""
+        """penjumlahan terbalik (other + self)."""
         return self.__add__(other)
 
     def __sub__(self, other: 'Value') -> 'Value':
         """
-        Subtraction operation.
+        operasi pengurangan.
 
-        Args:
-            other: Another Value or scalar
+        argumen:
+            other: nilai atau skalar lain
 
-        Returns:
-            New Value representing the difference
+        kembali:
+            nilai baru yang merepresentasikan selisih
         """
         other = other if isinstance(other, Value) else Value(other)
         out = Value(self.data - other.data, (self, other), '-')
@@ -103,18 +92,18 @@ class Value:
         return out
 
     def __rsub__(self, other: 'Value') -> 'Value':
-        """Reverse subtraction (other - self)."""
+        """pengurangan terbalik (other - self)."""
         return Value(other) - self
 
     def __mul__(self, other: 'Value') -> 'Value':
         """
-        Multiplication operation.
+        operasi perkalian.
 
-        Args:
-            other: Another Value or scalar
+        argumen:
+            other: nilai atau skalar lain
 
-        Returns:
-            New Value representing the product
+        kembali:
+            nilai baru yang merepresentasikan hasil kali
         """
         other = other if isinstance(other, Value) else Value(other)
         out = Value(self.data * other.data, (self, other), '*')
@@ -127,18 +116,18 @@ class Value:
         return out
 
     def __rmul__(self, other: 'Value') -> 'Value':
-        """Reverse multiplication (other * self)."""
+        """perkalian terbalik (other * self)."""
         return self.__mul__(other)
 
     def __truediv__(self, other: 'Value') -> 'Value':
         """
-        Division operation.
+        operasi pembagian.
 
-        Args:
-            other: Another Value or scalar
+        argumen:
+            other: nilai atau skalar lain
 
-        Returns:
-            New Value representing the quotient
+        kembali:
+            nilai baru yang merepresentasikan hasil bagi
         """
         other = other if isinstance(other, Value) else Value(other)
         out = Value(self.data / other.data, (self, other), '/')
@@ -151,20 +140,20 @@ class Value:
         return out
 
     def __rtruediv__(self, other: 'Value') -> 'Value':
-        """Reverse division (other / self)."""
+        """pembagian terbalik (other / self)."""
         return Value(other) / self
 
     def __pow__(self, other: Union[float, int]) -> 'Value':
         """
-        Power operation.
+        operasi pangkat.
 
-        Args:
-            other: Exponent (scalar)
+        argumen:
+            other: eksponen (skalar)
 
-        Returns:
-            New Value representing self^other
+        kembali:
+            nilai baru yang merepresentasikan self^other
         """
-        assert isinstance(other, (int, float)), "only supporting int/float powers for now"
+        assert isinstance(other, (int, float)), "hanya mendukung pangkat int/float untuk saat ini"
         out = Value(self.data ** other, (self,), f'**{other}')
 
         def _backward():
@@ -175,10 +164,10 @@ class Value:
 
     def relu(self) -> 'Value':
         """
-        ReLU activation function.
+        fungsi aktivasi reLU.
 
-        Returns:
-            New Value with ReLU applied
+        kembali:
+            nilai baru dengan reLU diterapkan
         """
         out = Value(max(0, self.data), (self,), 'ReLU')
 
@@ -190,10 +179,10 @@ class Value:
 
     def sigmoid(self) -> 'Value':
         """
-        Sigmoid activation function.
+        fungsi aktivasi sigmoid.
 
-        Returns:
-            New Value with sigmoid applied
+        kembali:
+            nilai baru dengan sigmoid diterapkan
         """
         sig = 1.0 / (1.0 + np.exp(-self.data))
         out = Value(sig, (self,), 'sigmoid')
@@ -206,10 +195,10 @@ class Value:
 
     def tanh(self) -> 'Value':
         """
-        Hyperbolic tangent activation function.
+        fungsi aktivasi hiperbolik tangen.
 
-        Returns:
-            New Value with tanh applied
+        kembali:
+            nilai baru dengan tanh diterapkan
         """
         t = np.tanh(self.data)
         out = Value(t, (self,), 'tanh')
@@ -222,10 +211,10 @@ class Value:
 
     def exp(self) -> 'Value':
         """
-        Exponential function.
+        fungsi eksponensial.
 
-        Returns:
-            New Value with exp applied
+        kembali:
+            nilai baru dengan exp diterapkan
         """
         x = self.data
         out = Value(np.exp(x), (self,), 'exp')
@@ -238,12 +227,12 @@ class Value:
 
     def backward(self) -> None:
         """
-        Perform backpropagation to compute gradients.
+        lakukan backpropagation untuk menghitung gradien.
 
-        This method computes the gradient of all nodes in the
-        computational graph with respect to this node.
+        metode ini menghitung gradien dari semua node dalam
+        graf komputasi terhadap node ini.
         """
-        # Topological order all of the children in the graph
+        # urutkan secara topologis semua anak dalam graf
         topo = []
         visited = set()
 
@@ -256,15 +245,15 @@ class Value:
 
         build_topo(self)
 
-        # Go one variable at a time and apply the chain rule
+        # satu variabel pada satu waktu dan terapkan aturan rantai
         self.grad = 1.0
         for v in reversed(topo):
             v._backward()
 
     def __neg__(self) -> 'Value':
-        """Negation operation."""
+        """operasi negasi."""
         return self * -1
 
     def __repr__(self) -> str:
-        """String representation of the Value."""
+        """representasi string dari nilai."""
         return f"Value(data={self.data}, grad={self.grad})"

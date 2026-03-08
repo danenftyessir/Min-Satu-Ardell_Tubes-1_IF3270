@@ -1,11 +1,11 @@
-"""Binary Cross-Entropy Loss."""
+"""binary cross-entropy loss."""
 
 import numpy as np
 from .base import BaseLoss
 
 
 class BinaryCrossEntropyLoss(BaseLoss):
-    """Binary Cross-Entropy untuk klasifikasi biner."""
+    """binary cross-entropy untuk klasifikasi biner."""
 
     def __init__(self, epsilon: float = 1e-15):
         """inisialisasi dengan epsilon untuk mencegah log(0)."""

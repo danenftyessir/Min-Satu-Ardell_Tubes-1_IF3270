@@ -1,19 +1,12 @@
-"""
-Bonus Activation Functions Module
-==================================
-
-Fungsi aktivasi tambahan untuk bonus (5%).
-"""
-
 import numpy as np
 from .base import BaseActivation
 
 
 class LeakyReLU(BaseActivation):
-    """Leaky ReLU: f(x) = max(alpha * x, x)"""
+    """leaky relu: f(x) = max(alpha * x, x)"""
 
     def __init__(self, alpha: float = 0.01):
-        """Inisialisasi LeakyReLU."""
+        """inisialisasi leakyrelu."""
         self.alpha = alpha
 
     def forward(self, x: np.ndarray) -> np.ndarray:
@@ -26,10 +19,10 @@ class LeakyReLU(BaseActivation):
 
 
 class ELU(BaseActivation):
-    """ELU: f(x) = x jika x > 0, else alpha * (exp(x) - 1)"""
+    """elu: f(x) = x jika x > 0, else alpha * (exp(x) - 1)"""
 
     def __init__(self, alpha: float = 1.0):
-        """Inisialisasi ELU."""
+        """inisialisasi elu."""
         self.alpha = alpha
 
     def forward(self, x: np.ndarray) -> np.ndarray:
@@ -42,14 +35,14 @@ class ELU(BaseActivation):
 
 
 class GELU(BaseActivation):
-    """GELU: f(x) = 0.5 * x * (1 + tanh(sqrt(2/π) * (x + 0.044715 * x^3)))"""
+    """gelu: f(x) = 0.5 * x * (1 + tanh(sqrt(2/π) * (x + 0.044715 * x^3)))"""
 
     def forward(self, x: np.ndarray) -> np.ndarray:
         """f(x) ≈ 0.5 * x * (1 + tanh(sqrt(2/π) * (x + 0.044715 * x^3)))"""
         return 0.5 * x * (1 + np.tanh(np.sqrt(2 / np.pi) * (x + 0.044715 * x ** 3)))
 
     def backward(self, x: np.ndarray) -> np.ndarray:
-        """Turunan GELU (numerical approximation)"""
+        """turunan gelu (numerical approximation)"""
         tanh_part = np.tanh(np.sqrt(2 / np.pi) * (x + 0.044715 * x ** 3))
         sech_sq = 1 - tanh_part ** 2
 
@@ -60,7 +53,7 @@ class GELU(BaseActivation):
 
 
 class Swish(BaseActivation):
-    """Swish: f(x) = x * sigmoid(x)"""
+    """swish: f(x) = x * sigmoid(x)"""
 
     def forward(self, x: np.ndarray) -> np.ndarray:
         """f(x) = x * sigmoid(x)"""

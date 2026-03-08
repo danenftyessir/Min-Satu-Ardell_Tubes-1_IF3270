@@ -1,12 +1,12 @@
 """
-Base Regularizer Module
-========================
+modul kelas dasar regularizer
+=============================
 
-This module provides the base class for all regularization methods.
-All regularizers should inherit from this base class.
+modul ini menyediakan kelas dasar untuk semua metode regularisasi.
+semua regularizer harus mewarisi dari kelas dasar ini.
 
-Classes:
-    BaseRegularizer: Abstract base class for all regularizers
+kelas:
+    baseregularizer: kelas abstrak dasar untuk semua regularizer
 """
 
 from abc import ABC, abstractmethod
@@ -15,52 +15,52 @@ import numpy as np
 
 class BaseRegularizer(ABC):
     """
-    Abstract base class for all regularizers.
+    kelas abstrak dasar untuk semua regularizer.
 
-    This class defines the interface that all regularizers must implement.
-    Regularization helps prevent overfitting by adding a penalty term
-    to the loss function.
+    kelas ini mendefinisikan interface yang harus diimplementasikan semua regularizer.
+    regularisasi membantu mencegah overfitting dengan menambahkan penalti
+    ke fungsi loss.
 
-    Methods:
-        __call__: Compute regularization term (alias for forward)
-        forward: Compute regularization term to add to loss
-        backward: Compute gradient of regularization term
+    metode:
+        __call__: hitung regularisasi (alias untuk forward)
+        forward: hitung regularisasi untuk ditambahkan ke loss
+        backward: hitung gradien dari regularisasi
     """
 
     @abstractmethod
     def forward(self, weights: np.ndarray) -> float:
         """
-        Compute the regularization term.
+        hitung regularisasi.
 
-        Args:
-            weights: Weight array
+        argumen:
+            weights: array bobot
 
-        Returns:
-            Regularization term (scalar)
+        kembali:
+            regularisasi (skalar)
         """
         pass
 
     @abstractmethod
     def backward(self, weights: np.ndarray) -> np.ndarray:
         """
-        Compute the gradient of the regularization term.
+        hitung gradien dari regularisasi.
 
-        Args:
-            weights: Weight array
+        argumen:
+            weights: array bobot
 
-        Returns:
-            Gradient array with same shape as weights
+        kembali:
+            array gradien dengan bentuk yang sama seperti weights
         """
         pass
 
     def __call__(self, weights: np.ndarray) -> float:
         """
-        Compute regularization term (convenience method).
+        hitung regularisasi (metode kemudahan).
 
-        Args:
-            weights: Weight array
+        argumen:
+            weights: array bobot
 
-        Returns:
-            Regularization term (scalar)
+        kembali:
+            regularisasi (skalar)
         """
         return self.forward(weights)

@@ -1,5 +1,3 @@
-"""Gradient Descent Optimizer."""
-
 import numpy as np
 from typing import List
 from .base import BaseOptimizer

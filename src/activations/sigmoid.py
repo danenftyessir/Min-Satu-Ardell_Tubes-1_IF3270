@@ -1,11 +1,11 @@
-"""Sigmoid Activation - f(x) = 1 / (1 + exp(-x))."""
+"""aktivasi sigmoid - f(x) = 1 / (1 + exp(-x))."""
 
 import numpy as np
 from .base import BaseActivation
 
 
 class Sigmoid(BaseActivation):
-    """Sigmoid activation: f(x) = 1 / (1 + exp(-x))"""
+    """aktivasi sigmoid: f(x) = 1 / (1 + exp(-x))"""
 
     def forward(self, x: np.ndarray) -> np.ndarray:
         """f(x) = 1 / (1 + exp(-x))"""

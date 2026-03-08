@@ -1,11 +1,11 @@
-"""MSE Loss - Mean Squared Error."""
+"""mse loss - mean squared error."""
 
 import numpy as np
 from .base import BaseLoss
 
 
 class MSELoss(BaseLoss):
-    """Mean Squared Error: L = (1/n) * sum((y_true - y_pred)^2)"""
+    """mean squared error: L = (1/n) * sum((y_true - y_pred)^2)"""
 
     def forward(self, y_true: np.ndarray, y_pred: np.ndarray) -> float:
         """L = (1/n) * sum((y_true - y_pred)^2)"""

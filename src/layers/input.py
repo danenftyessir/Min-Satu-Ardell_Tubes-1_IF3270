@@ -1,12 +1,12 @@
 """
-Input Layer Module
+modul layer input
 ==================
 
-This module provides the implementation of the Input layer.
-The input layer is responsible for receiving and validating input data.
+modul ini menyediakan implementasi dari layer input.
+layer input bertanggung jawab untuk menerima dan memvalidasi data input.
 
-Classes:
-    InputLayer: Input layer implementation
+kelas:
+    InputLayer: implementasi layer input
 """
 
 import numpy as np
@@ -16,89 +16,89 @@ from .base import BaseLayer
 
 class InputLayer(BaseLayer):
     """
-    Input layer implementation.
+    implementasi layer input.
 
-    This layer serves as the entry point for data into the neural network.
-    It validates input dimensions and can perform basic preprocessing.
+    layer ini berfungsi sebagai titik masuk data ke dalam jaringan saraf.
+    layer ini memvalidasi dimensi input dan dapat melakukan preprocessing dasar.
 
-    Attributes:
-        input_dim: Expected dimension of input data
-        output_dim: Dimension of output (same as input_dim)
-        name: Optional name for the layer
+    atribut:
+        input_dim: dimensi yang diharapkan dari data input
+        output_dim: dimensi output (sama dengan input_dim)
+        name: nama opsional untuk layer
 
-    Example:
+    contoh:
         >>> input_layer = InputLayer(input_dim=784)
         >>> output = input_layer.forward(X)
     """
 
     def __init__(self, input_dim: int, name: Optional[str] = None):
         """
-        Initialize the Input layer.
+        inisialisasi layer input.
 
-        Args:
-            input_dim: Expected dimension of input features
-            name: Optional name for the layer
+        argumen:
+            input_dim: dimensi yang diharapkan dari fitur input
+            name: nama opsional untuk layer
         """
         super().__init__(input_dim, input_dim)
         self.name = name or "input"
 
     def forward(self, X: np.ndarray) -> np.ndarray:
         """
-        Pass input through the input layer.
+        lewatkan input melalui layer input.
 
-        This method validates the input dimension and returns the input
-        without modification.
+        metode ini memvalidasi dimensi input dan mengembalikan input
+        tanpa modifikasi.
 
-        Args:
-            X: Input data of shape (batch_size, input_dim)
+        argumen:
+            X: data input dengan bentuk (batch_size, input_dim)
 
-        Returns:
-            Input data unchanged (batch_size, input_dim)
+        kembali:
+            data input tidak berubah (batch_size, input_dim)
 
         Raises:
-            ValueError: If input dimension doesn't match expected dimension
+            ValueError: jika dimensi input tidak sesuai dengan dimensi yang diharapkan
         """
         if X.shape[1] != self.input_dim:
             raise ValueError(
-                f"Input dimension mismatch. Expected {self.input_dim}, "
-                f"got {X.shape[1]}"
+                f"ketidakcocokan dimensi input. diharapkan {self.input_dim}, "
+                f"didapat {X.shape[1]}"
             )
 
         return X
 
     def backward(self, grad: np.ndarray) -> np.ndarray:
         """
-        Pass gradient through the input layer.
+        lewatkan gradien melalui layer input.
 
-        Since the input layer doesn't transform the data, it simply
-        passes the gradient through unchanged.
+        karena layer input tidak mengubah data, layer ini hanya
+        meneruskan gradien tanpa perubahan.
 
-        Args:
-            grad: Gradient from the next layer
+        argumen:
+            grad: gradien dari layer berikutnya
 
-        Returns:
-            Gradient unchanged
+        kembali:
+            gradien tidak berubah
         """
         return grad
 
     def get_params(self) -> dict:
         """
-        Get layer parameters.
+        dapatkan parameter layer.
 
-        Input layer has no learnable parameters.
+        layer input tidak memiliki parameter yang dapat dipelajari.
 
-        Returns:
-            Empty dictionary
+        kembali:
+            kamus kosong
         """
         return {}
 
     def set_params(self, params: dict) -> None:
         """
-        Set layer parameters.
+        atur parameter layer.
 
-        Input layer has no parameters to set.
+        layer input tidak memiliki parameter untuk diatur.
 
-        Args:
-            params: Empty dictionary
+        argumen:
+            params: kamus kosong
         """
         pass

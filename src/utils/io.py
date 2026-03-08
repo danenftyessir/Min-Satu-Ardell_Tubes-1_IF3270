@@ -1,7 +1,3 @@
-"""
-Input/Output Utilities - Simpan & load model.
-"""
-
 import pickle
 import numpy as np
 from typing import Any

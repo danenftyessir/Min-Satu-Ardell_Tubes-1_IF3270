@@ -1,10 +1,4 @@
-"""
-Base Activation Module
-======================
-
-Kelas abstrak untuk semua fungsi aktivasi.
-"""
-
+# Base Activation Module
 from abc import ABC, abstractmethod
 import numpy as np
 

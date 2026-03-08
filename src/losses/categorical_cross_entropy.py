@@ -1,14 +1,14 @@
-"""Categorical Cross-Entropy Loss."""
+"""categorical cross-entropy loss."""
 
 import numpy as np
 from .base import BaseLoss
 
 
 class CategoricalCrossEntropyLoss(BaseLoss):
-    """Categorical Cross-Entropy untuk multi-kelas."""
+    """categorical cross-entropy untuk multi-kelas."""
 
     def __init__(self, epsilon: float = 1e-15):
-        """Inisialisasi dengan epsilon untuk mencegah log(0)."""
+        """inisialisasi dengan epsilon untuk mencegah log(0)."""
         self.epsilon = epsilon
 
     def forward(self, y_true: np.ndarray, y_pred: np.ndarray) -> float:

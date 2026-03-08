@@ -1,10 +1,3 @@
-"""
-Base Optimizer Module
-=====================
-
-Kelas abstrak untuk semua optimizer.
-"""
-
 from abc import ABC, abstractmethod
 import numpy as np
 from typing import List, Dict

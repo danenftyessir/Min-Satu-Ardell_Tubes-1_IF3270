@@ -1,12 +1,12 @@
 """
-Base Layer Module
-=================
+modul kelas dasar layer
+======================
 
-This module provides the base class for all layer implementations.
-All layer classes should inherit from this base class.
+modul ini menyediakan kelas dasar untuk semua implementasi layer.
+semua kelas layer harus mewarisi dari kelas dasar ini.
 
-Classes:
-    BaseLayer: Abstract base class for all layers
+kelas:
+    baselayer: kelas abstrak dasar untuk semua layer
 """
 
 from abc import ABC, abstractmethod
@@ -15,30 +15,30 @@ import numpy as np
 
 class BaseLayer(ABC):
     """
-    Abstract base class for all layers.
+    kelas abstrak dasar untuk semua layer.
 
-    This class defines the interface that all layers must implement.
-    It provides common functionality and ensures consistent API across
-    different layer implementations.
+    kelas ini mendefinisikan interface yang harus diimplementasikan semua layer.
+    kelas ini menyediakan fungsionalitas umum dan memastikan api yang konsisten
+    di berbagai implementasi layer.
 
-    Attributes:
-        input_dim: Dimension of input to the layer
-        output_dim: Dimension of output from the layer
+    atribut:
+        input_dim: dimensi input ke layer
+        output_dim: dimensi output dari layer
 
-    Methods:
-        forward: Forward pass through the layer
-        backward: Backward pass to compute gradients
-        get_params: Get layer parameters
-        set_params: Set layer parameters
+    metode:
+        forward: propagasi maju melalui layer
+        backward: propagasi mundur untuk menghitung gradien
+        get_params: dapatkan parameter layer
+        set_params: atur parameter layer
     """
 
     def __init__(self, input_dim: int, output_dim: int):
         """
-        Initialize the base layer.
+        inisialisasi layer dasar.
 
-        Args:
-            input_dim: Number of input features
-            output_dim: Number of output features
+        argumen:
+            input_dim: jumlah fitur input
+            output_dim: jumlah fitur output
         """
         self.input_dim = input_dim
         self.output_dim = output_dim
@@ -46,45 +46,45 @@ class BaseLayer(ABC):
     @abstractmethod
     def forward(self, X: np.ndarray) -> np.ndarray:
         """
-        Perform forward pass through the layer.
+        lakukan propagasi maju melalui layer.
 
-        Args:
-            X: Input data of shape (batch_size, input_dim)
+        argumen:
+            X: data input dengan bentuk (batch_size, input_dim)
 
-        Returns:
-            Output of the layer of shape (batch_size, output_dim)
+        kembali:
+            output dari layer dengan bentuk (batch_size, output_dim)
         """
         pass
 
     @abstractmethod
     def backward(self, grad: np.ndarray) -> np.ndarray:
         """
-        Perform backward pass to compute gradients.
+        lakukan propagasi mundur untuk menghitung gradien.
 
-        Args:
-            grad: Gradient from the next layer
+        argumen:
+            grad: gradien dari layer selanjutnya
 
-        Returns:
-            Gradient to pass to the previous layer
+        kembali:
+            gradien untuk diteruskan ke layer sebelumnya
         """
         pass
 
     @abstractmethod
     def get_params(self) -> dict:
         """
-        Get layer parameters.
+        dapatkan parameter layer.
 
-        Returns:
-            Dictionary containing layer parameters (weights, biases, etc.)
+        kembali:
+            dictionary yang berisi parameter layer (bobot, bias, dll)
         """
         pass
 
     @abstractmethod
     def set_params(self, params: dict) -> None:
         """
-        Set layer parameters.
+        atur parameter layer.
 
-        Args:
-            params: Dictionary containing layer parameters
+        argumen:
+            params: dictionary yang berisi parameter layer
         """
         pass

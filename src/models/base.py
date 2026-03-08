@@ -1,7 +1,3 @@
-"""
-Base Model - Kelas dasar untuk semua model neural network.
-"""
-
 from abc import ABC, abstractmethod
 import numpy as np
 

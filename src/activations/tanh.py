@@ -1,11 +1,11 @@
-"""Tanh Activation - f(x) = tanh(x)."""
+"""aktivasi tanh - f(x) = tanh(x)."""
 
 import numpy as np
 from .base import BaseActivation
 
 
 class Tanh(BaseActivation):
-    """Hyperbolic tangent: f(x) = tanh(x)"""
+    """hyperbolic tangent: f(x) = tanh(x)"""
 
     def forward(self, x: np.ndarray) -> np.ndarray:
         """f(x) = tanh(x)"""

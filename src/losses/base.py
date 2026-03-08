@@ -1,12 +1,12 @@
 """
-Base Loss Function Module
-==========================
+modul kelas dasar fungsi loss
+=============================
 
-This module provides the base class for all loss function implementations.
-All loss functions should inherit from this base class.
+modul ini menyediakan kelas dasar untuk semua implementasi fungsi loss.
+semua fungsi loss harus mewarisi dari kelas dasar ini.
 
-Classes:
-    BaseLoss: Abstract base class for all loss functions
+kelas:
+    baseloss: kelas abstrak dasar untuk semua fungsi loss
 """
 
 from abc import ABC, abstractmethod
@@ -15,55 +15,55 @@ import numpy as np
 
 class BaseLoss(ABC):
     """
-    Abstract base class for all loss functions.
+    kelas abstrak dasar untuk semua fungsi loss.
 
-    This class defines the interface that all loss functions must implement.
-    It provides common functionality and ensures consistent API across
-    different loss implementations.
+    kelas ini mendefinisikan interface yang harus diimplementasikan semua fungsi loss.
+    kelas ini menyediakan fungsionalitas umum dan memastikan api yang konsisten
+    di berbagai implementasi loss.
 
-    Methods:
-        __call__: Compute loss (alias for forward)
-        forward: Compute loss value
-        backward: Compute gradient of loss with respect to predictions
+    metode:
+        __call__: hitung loss (alias untuk forward)
+        forward: hitung nilai loss
+        backward: hitung gradien loss terhadap prediksi
     """
 
     @abstractmethod
     def forward(self, y_true: np.ndarray, y_pred: np.ndarray) -> float:
         """
-        Compute the loss value.
+        hitung nilai loss.
 
-        Args:
-            y_true: True target values
-            y_pred: Predicted values
+        argumen:
+            y_true: nilai target sebenarnya
+            y_pred: nilai prediksi
 
-        Returns:
-            Loss value (scalar)
+        kembali:
+            nilai loss (skalar)
         """
         pass
 
     @abstractmethod
     def backward(self, y_true: np.ndarray, y_pred: np.ndarray) -> np.ndarray:
         """
-        Compute the gradient of loss with respect to predictions.
+        hitung gradien loss terhadap prediksi.
 
-        Args:
-            y_true: True target values
-            y_pred: Predicted values
+        argumen:
+            y_true: nilai target sebenarnya
+            y_pred: nilai prediksi
 
-        Returns:
-            Gradient array with same shape as y_pred
+        kembali:
+            array gradien dengan bentuk yang sama seperti y_pred
         """
         pass
 
     def __call__(self, y_true: np.ndarray, y_pred: np.ndarray) -> float:
         """
-        Compute loss (convenience method).
+        hitung loss (metode kemudahan).
 
-        Args:
-            y_true: True target values
-            y_pred: Predicted values
+        argumen:
+            y_true: nilai target sebenarnya
+            y_pred: nilai prediksi
 
-        Returns:
-            Loss value (scalar)
+        kembali:
+            nilai loss (skalar)
         """
         return self.forward(y_true, y_pred)

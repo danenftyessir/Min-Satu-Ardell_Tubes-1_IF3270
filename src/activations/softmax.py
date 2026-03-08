@@ -1,4 +1,4 @@
-"""Softmax Activation - exp(x) / sum(exp(x))."""
+"""aktivasi softmax - exp(x) / sum(exp(x))."""
 
 import numpy as np
 from .base import BaseActivation

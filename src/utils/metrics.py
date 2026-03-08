@@ -1,57 +1,29 @@
-"""
-Metrics Utilities Module
-========================
-
-This module provides utility functions for computing various metrics.
-
-Functions:
-    accuracy: Compute accuracy score
-    precision: Compute precision score
-    recall: Compute recall score
-    f1_score: Compute F1 score
-    confusion_matrix: Compute confusion matrix
-"""
-
 import numpy as np
 from typing import Union
 
 
 def accuracy(y_true: np.ndarray, y_pred: np.ndarray) -> float:
     """
-    Compute accuracy score.
+    hitung skor akurasi
 
-    Accuracy = (number of correct predictions) / (total predictions)
+    accuracy = (number of correct predictions) / (total predictions)
 
-    Args:
-        y_true: True labels
-        y_pred: Predicted labels
-
-    Returns:
-        Accuracy score between 0 and 1
-
-    Example:
-        >>> acc = accuracy(y_true, y_pred)
-        >>> print(f"Accuracy: {acc:.4f}")
+    argumen:
+        y_true: label sebenarnya
+        y_pred: label prediksi
     """
     return np.mean(y_true == y_pred)
 
 
 def precision(y_true: np.ndarray, y_pred: np.ndarray) -> float:
     """
-    Compute precision score.
+    hitung skor precision.
 
-    Precision = TP / (TP + FP)
+    precision = TP / (TP + FP)
 
-    Args:
-        y_true: True labels (binary: 0 or 1)
-        y_pred: Predicted labels (binary: 0 or 1)
-
-    Returns:
-        Precision score
-
-    Example:
-        >>> prec = precision(y_true, y_pred)
-        >>> print(f"Precision: {prec:.4f}")
+    argumen:
+        y_true: label sebenarnya (biner: 0 atau 1)
+        y_pred: label prediksi (biner: 0 atau 1)
     """
     tp = np.sum((y_true == 1) & (y_pred == 1))
     fp = np.sum((y_true == 0) & (y_pred == 1))
@@ -64,20 +36,13 @@ def precision(y_true: np.ndarray, y_pred: np.ndarray) -> float:
 
 def recall(y_true: np.ndarray, y_pred: np.ndarray) -> float:
     """
-    Compute recall score.
+    hitung skor recall.
 
-    Recall = TP / (TP + FN)
+    recall = TP / (TP + FN)
 
-    Args:
-        y_true: True labels (binary: 0 or 1)
-        y_pred: Predicted labels (binary: 0 or 1)
-
-    Returns:
-        Recall score
-
-    Example:
-        >>> rec = recall(y_true, y_pred)
-        >>> print(f"Recall: {rec:.4f}")
+    argumen:
+        y_true: label sebenarnya (biner: 0 atau 1)
+        y_pred: label prediksi (biner: 0 atau 1)
     """
     tp = np.sum((y_true == 1) & (y_pred == 1))
     fn = np.sum((y_true == 1) & (y_pred == 0))
@@ -90,20 +55,13 @@ def recall(y_true: np.ndarray, y_pred: np.ndarray) -> float:
 
 def f1_score(y_true: np.ndarray, y_pred: np.ndarray) -> float:
     """
-    Compute F1 score.
+    hitung skor f1.
 
-    F1 = 2 * (precision * recall) / (precision + recall)
+    f1 = 2 * (precision * recall) / (precision + recall)
 
-    Args:
-        y_true: True labels (binary: 0 or 1)
-        y_pred: Predicted labels (binary: 0 or 1)
-
-    Returns:
-        F1 score
-
-    Example:
-        >>> f1 = f1_score(y_true, y_pred)
-        >>> print(f"F1 Score: {f1:.4f}")
+    argumen:
+        y_true: label sebenarnya (biner: 0 atau 1)
+        y_pred: label prediksi (biner: 0 atau 1)
     """
     prec = precision(y_true, y_pred)
     rec = recall(y_true, y_pred)
@@ -116,28 +74,21 @@ def f1_score(y_true: np.ndarray, y_pred: np.ndarray) -> float:
 
 def confusion_matrix(y_true: np.ndarray, y_pred: np.ndarray) -> np.ndarray:
     """
-    Compute confusion matrix.
+    hitung confusion matrix.
 
-    For binary classification:
+    untuk klasifikasi biner:
     [[TN, FP],
      [FN, TP]]
 
-    Args:
-        y_true: True labels
-        y_pred: Predicted labels
-
-    Returns:
-        Confusion matrix as numpy array
-
-    Example:
-        >>> cm = confusion_matrix(y_true, y_pred)
-        >>> print(cm)
+    argumen:
+        y_true: label sebenarnya
+        y_pred: label prediksi
     """
-    # Get unique classes
+    # dapatkan kelas unik
     classes = np.unique(np.concatenate([y_true, y_pred]))
     n_classes = len(classes)
 
-    # Create confusion matrix
+    # buat confusion matrix
     cm = np.zeros((n_classes, n_classes), dtype=int)
 
     for i, true_class in enumerate(classes):
@@ -149,60 +100,39 @@ def confusion_matrix(y_true: np.ndarray, y_pred: np.ndarray) -> np.ndarray:
 
 def mean_squared_error(y_true: np.ndarray, y_pred: np.ndarray) -> float:
     """
-    Compute Mean Squared Error.
+    hitung mean squared error.
 
     MSE = (1/n) * sum((y_true - y_pred)^2)
 
-    Args:
-        y_true: True values
-        y_pred: Predicted values
-
-    Returns:
-        MSE value
-
-    Example:
-        >>> mse = mean_squared_error(y_true, y_pred)
-        >>> print(f"MSE: {mse:.4f}")
+    argumen:
+        y_true: nilai sebenarnya
+        y_pred: nilai prediksi
     """
     return np.mean((y_true - y_pred) ** 2)
 
 
 def mean_absolute_error(y_true: np.ndarray, y_pred: np.ndarray) -> float:
     """
-    Compute Mean Absolute Error.
+    hitung mean absolute error.
 
     MAE = (1/n) * sum(|y_true - y_pred|)
 
-    Args:
-        y_true: True values
-        y_pred: Predicted values
-
-    Returns:
-        MAE value
-
-    Example:
-        >>> mae = mean_absolute_error(y_true, y_pred)
-        >>> print(f"MAE: {mae:.4f}")
+    argumen:
+        y_true: nilai sebenarnya
+        y_pred: nilai prediksi
     """
     return np.mean(np.abs(y_true - y_pred))
 
 
 def r2_score(y_true: np.ndarray, y_pred: np.ndarray) -> float:
     """
-    Compute R² (coefficient of determination) score.
+    hitung r**2 (koefisien determinasi) score.
 
-    R² = 1 - (sum((y_true - y_pred)^2) / sum((y_true - mean(y_true))^2))
+    r**2 = 1 - (sum((y_true - y_pred)^2) / sum((y_true - mean(y_true))^2))
 
-    Args:
-        y_true: True values
-        y_pred: Predicted values
-
-    Returns:
-        R² score
-
-    Example:
-        >>> r2 = r2_score(y_true, y_pred)
-        >>> print(f"R² Score: {r2:.4f}")
+    argumen:
+        y_true: nilai sebenarnya
+        y_pred: nilai prediksi
     """
     ss_res = np.sum((y_true - y_pred) ** 2)
     ss_tot = np.sum((y_true - np.mean(y_true)) ** 2)

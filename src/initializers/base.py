@@ -1,52 +1,41 @@
-"""
-Base Initializer Module
-========================
-
-This module provides the base class for all weight initialization methods.
-All initializers should inherit from this base class.
-
-Classes:
-    BaseInitializer: Abstract base class for all initializers
-"""
-
 from abc import ABC, abstractmethod
 import numpy as np
 
 
 class BaseInitializer(ABC):
     """
-    Abstract base class for all weight initializers.
+    kelas abstrak dasar untuk semua inisialisasi bobot.
 
-    This class defines the interface that all initializers must implement.
-    It provides common functionality and ensures consistent API across
-    different initialization methods.
+    kelas ini mendefinisikan interface yang harus diimplementasikan semua initializer.
+    kelas ini menyediakan fungsionalitas umum dan memastikan api yang konsisten
+    di berbagai metode inisialisasi.
 
-    Methods:
-        __call__: Initialize weights (alias for initialize)
-        initialize: Initialize weights with the specific method
+    metode:
+        __call__: inisialisasi bobot (alias untuk initialize)
+        initialize: inisialisasi bobot dengan metode spesifik
     """
 
     @abstractmethod
     def initialize(self, shape: tuple) -> np.ndarray:
         """
-        Initialize weights with the specific method.
+        inisialisasi bobot dengan metode spesifik.
 
-        Args:
-            shape: Shape of the weight array to initialize
+        argumen:
+            shape: bentuk array bobot yang akan diinisialisasi
 
-        Returns:
-            Initialized weight array
+        kembali:
+            array bobot yang sudah diinisialisasi
         """
         pass
 
     def __call__(self, shape: tuple) -> np.ndarray:
         """
-        Initialize weights (convenience method).
+        inisialisasi bobot (metode kemudahan).
 
-        Args:
-            shape: Shape of the weight array to initialize
+        argumen:
+            shape: bentuk array bobot yang akan diinisialisasi
 
-        Returns:
-            Initialized weight array
+        kembali:
+            array bobot yang sudah diinisialisasi
         """
         return self.initialize(shape)
