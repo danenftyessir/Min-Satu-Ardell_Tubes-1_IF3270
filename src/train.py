@@ -7,16 +7,15 @@ import json
 import os
 import sys
 
-# Add parent directory to path untuk import
+# Setup project path untuk imports
 current_dir = os.path.dirname(os.path.abspath(__file__))
 parent_dir = os.path.dirname(current_dir)
-sys.path.insert(0, parent_dir)
+if parent_dir not in sys.path:
+    sys.path.insert(0, parent_dir)
 
-from src.preprocessing import DataPreprocessor
 from src.models.ffnn import FFNN
-from src.utils.metrics import accuracy
 from src.utils.plotting import plot_training_history
-from src.utils.io import save_training_history
+from src.utils.pipeline import prepare_dataset, evaluate_model, save_training_artifacts
 import matplotlib.pyplot as plt
 
 
@@ -59,23 +58,14 @@ class FFNNTrainer:
         print("PREPARING DATA")
         print("="*70)
 
-        self.preprocessor = DataPreprocessor(self.data_path)
-        self.preprocessor.load_data()
-        self.preprocessor.explore_data()
-        self.preprocessor.visualize_data(
-            save_path=os.path.join(self.output_dir, 'eda_visualization.png')
-        )
-
-        self.X_train, self.X_val, self.X_test, self.y_train, self.y_val, self.y_test = \
-            self.preprocessor.preprocess_data(
-                test_size=test_size,
-                val_size=val_size,
-                random_state=random_state
-            )
-
-        self.info = self.preprocessor.get_data_info()
-        self.preprocessor.save_processed_data(
-            output_dir=os.path.join(self.output_dir, 'processed_data')
+        (self.preprocessor, self.X_train, self.X_val, self.X_test,
+         self.y_train, self.y_val, self.y_test, self.info) = prepare_dataset(
+            data_path=self.data_path,
+            output_dir=self.output_dir,
+            test_size=test_size,
+            val_size=val_size,
+            random_state=random_state,
+            visualize=True
         )
 
         print(f"\nDataset prepared:")
@@ -151,13 +141,15 @@ class FFNNTrainer:
         )
 
         # Evaluasi
-        y_train_pred = model.predict(self.X_train)
-        y_val_pred = model.predict(self.X_val)
-        y_test_pred = model.predict(self.X_test)
+        eval_results = evaluate_model(
+            model, self.X_train, self.y_train,
+            self.X_val, self.y_val,
+            self.X_test, self.y_test
+        )
 
-        train_acc = accuracy(self.y_train, y_train_pred)
-        val_acc = accuracy(self.y_val, y_val_pred)
-        test_acc = accuracy(self.y_test, y_test_pred)
+        train_acc = eval_results['train_accuracy']
+        val_acc = eval_results['val_accuracy']
+        test_acc = eval_results['test_accuracy']
 
         print(f"\nResults:")
         print(f"  Train Accuracy: {train_acc:.4f}")
@@ -165,14 +157,15 @@ class FFNNTrainer:
         print(f"  Test Accuracy:  {test_acc:.4f}")
 
         # Simpan model dan history
-        model_path = os.path.join(self.output_dir, f'{model_name}_model.pkl')
-        history_path = os.path.join(self.output_dir, f'{model_name}_history.pkl')
-        plot_path = os.path.join(self.output_dir, f'{model_name}_training.png')
-
-        model.save(model_path)
-        save_training_history(history, history_path)
+        model_path, history_path = save_training_artifacts(
+            model=model,
+            history=history,
+            output_dir=self.output_dir,
+            model_name=model_name
+        )
 
         # Plot training history
+        plot_path = os.path.join(self.output_dir, f'{model_name}_training.png')
         fig = plot_training_history(history)
         plt.savefig(plot_path, dpi=300, bbox_inches='tight')
         plt.close()

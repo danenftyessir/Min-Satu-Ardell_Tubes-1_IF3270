@@ -1,24 +1,17 @@
-"""
-titik masuk utama untuk implementasi FFNN
-=========================================
-
-script ini adalah titik masuk utama untuk menjalankan Feedforward Neural Network.
-"""
-
 import argparse
-import sys
 import os
+import sys
 import numpy as np
 
-# tambahkan direktori parent ke path untuk import
+# setup project path untuk imports
 current_dir = os.path.dirname(os.path.abspath(__file__))
 parent_dir = os.path.dirname(current_dir)
-sys.path.insert(0, parent_dir)
+if parent_dir not in sys.path:
+    sys.path.insert(0, parent_dir)
 
-from src.preprocessing import DataPreprocessor
 from src.models.ffnn import FFNN
-from src.utils.metrics import accuracy, precision, recall, f1_score, confusion_matrix
-from src.utils.plotting import plot_training_history, plot_weight_distribution, plot_gradient_distribution
+from src.utils.plotting import plot_training_history
+from src.utils.pipeline import prepare_dataset, evaluate_model, save_training_artifacts
 import matplotlib.pyplot as plt
 
 
@@ -97,25 +90,18 @@ def main():
     # 1. preprocessing
     print("\n[1] PREPROCESSING DATA")
     print("-" * 70)
-    preprocessor = DataPreprocessor(args.data)
-    preprocessor.load_data()
-    preprocessor.explore_data()
-    preprocessor.visualize_data(save_path=os.path.join(args.output_dir, 'eda_visualization.png'))
-
-    X_train, X_val, X_test, y_train, y_val, y_test = preprocessor.preprocess_data(
+    _, X_train, X_val, X_test, y_train, y_val, y_test, info = prepare_dataset(
+        data_path=args.data,
+        output_dir=args.output_dir,
         test_size=args.test_size,
         val_size=args.val_size,
         random_state=42
     )
 
-    info = preprocessor.get_data_info()
     print(f"\ninfo dataset:")
     print(f"  fitur: {info['n_features']}")
     print(f"  kelas: {info['n_classes']}")
     print(f"  train: {info['n_train_samples']}, val: {info['n_val_samples']}, test: {info['n_test_samples']}")
-
-    # simpan data yang sudah diproses
-    preprocessor.save_processed_data(output_dir=os.path.join(args.output_dir, 'processed_data'))
 
     # 2. bangun atau muat model
     print("\n[2] SETUP MODEL")
@@ -195,46 +181,40 @@ def main():
         plt.savefig(os.path.join(args.output_dir, 'training_history.png'), dpi=300, bbox_inches='tight')
         print(f"\ntraining history disimpan ke: {os.path.join(args.output_dir, 'training_history.png')}")
 
-        # simpan model
-        model_path = os.path.join(args.output_dir, f'{args.model_name}.pkl')
-        model.save(model_path)
+        # simpan model dan training history
+        model_path, history_path = save_training_artifacts(
+            model=model,
+            history=history,
+            output_dir=args.output_dir,
+            model_name=args.model_name
+        )
         print(f"model disimpan ke: {model_path}")
-
-        # simpan training history
-        from utils.io import save_training_history
-        history_path = os.path.join(args.output_dir, f'{args.model_name}_history.pkl')
-        save_training_history(history, history_path)
         print(f"training history disimpan ke: {history_path}")
 
     # 4. evaluasi
     print("\n[4] EVALUASI")
     print("-" * 70)
 
-    # evaluasi set train
-    y_train_pred = model.predict(X_train)
-    train_acc = accuracy(y_train, y_train_pred)
+    # evaluasi model
+    results = evaluate_model(model, X_train, y_train, X_val, y_val, X_test, y_test)
+
+    train_acc = results['train_accuracy']
+    val_acc = results['val_accuracy']
+    test_acc = results['test_accuracy']
+
     print(f"train accuracy: {train_acc:.4f} ({train_acc*100:.2f}%)")
-
-    # evaluasi set validasi
-    y_val_pred = model.predict(X_val)
-    val_acc = accuracy(y_val, y_val_pred)
     print(f"val accuracy:   {val_acc:.4f} ({val_acc*100:.2f}%)")
-
-    # evaluasi set test
-    y_test_pred = model.predict(X_test)
-    test_acc = accuracy(y_test, y_test_pred)
     print(f"test accuracy:  {test_acc:.4f} ({test_acc*100:.2f}%)")
 
     # metrik tambahan
     print(f"\nmetrik tambahan (test set):")
-    print(f"  precision: {precision(y_test, y_test_pred):.4f}")
-    print(f"  recall:    {recall(y_test, y_test_pred):.4f}")
-    print(f"  f1 score:  {f1_score(y_test, y_test_pred):.4f}")
+    print(f"  precision: {results['precision']:.4f}")
+    print(f"  recall:    {results['recall']:.4f}")
+    print(f"  f1 score:  {results['f1_score']:.4f}")
 
     # confusion matrix
-    cm = confusion_matrix(y_test, y_test_pred)
     print(f"\nconfusion matrix:")
-    print(cm)
+    print(results['confusion_matrix'])
 
     # 5. visualisasi
     print("\n[5] VISUALISASI")
