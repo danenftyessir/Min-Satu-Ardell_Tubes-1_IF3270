@@ -88,10 +88,11 @@ class DataPreprocessor:
 
     def visualize_data(self, save_path: str = None) -> None:
         """
-        visualisasi data untuk eda.
+        visualisasi data untuk eda (individual plots).
 
         argumen:
             save_path: path untuk menyimpan visualisasi. jika None, hanya menampilkan.
+                      akan digunakan sebagai base directory untuk menyimpan multiple plots.
         """
         if self.df is None:
             self.load_data()
@@ -100,53 +101,109 @@ class DataPreprocessor:
         print("membuat visualisasi")
         print("="*50)
 
-        # buat figure dengan subplots
-        fig = plt.figure(figsize=(20, 15))
+        # Tentukan output directory
+        if save_path:
+            output_dir = os.path.dirname(save_path)
+            if not output_dir:
+                output_dir = '.'
+            os.makedirs(output_dir, exist_ok=True)
+            save_mode = True
+        else:
+            save_mode = False
 
-        # 1. distribusi fitur numerik
+        # 1. Distribusi fitur numerik (individual plots)
         numerical_cols = self.df.select_dtypes(include=[np.number]).columns
-        n_num = len(numerical_cols)
+        if len(numerical_cols) > 0:
+            print(f"\n1. Membuat {len(numerical_cols)} plot distribusi numerik...")
+            for col in numerical_cols:
+                plt.figure(figsize=(10, 6))
+                self.df[col].hist(bins=30, color='skyblue', edgecolor='black', alpha=0.7)
+                plt.title(f'Distribution of {col}', fontsize=14, fontweight='bold')
+                plt.xlabel(col, fontsize=12)
+                plt.ylabel('Frequency', fontsize=12)
+                plt.grid(True, alpha=0.3)
 
-        if n_num > 0:
-            for i, col in enumerate(numerical_cols[:6], 1):  # maksimal 6 plot numerik
-                ax = fig.add_subplot(4, 3, i)
-                self.df[col].hist(bins=30, ax=ax, color='skyblue', edgecolor='black')
-                ax.set_title(f'Distribution of {col}')
-                ax.set_xlabel(col)
-                ax.set_ylabel('Frequency')
+                if save_mode:
+                    filename = f"{col.replace('/', '_')}_distribution.png"
+                    filepath = os.path.join(output_dir, filename)
+                    plt.savefig(filepath, dpi=300, bbox_inches='tight')
+                    plt.close()
+                else:
+                    plt.show()
+                    plt.close()
 
-        # 2. fitur kategorikal
+        # 2. Distribusi fitur kategorikal (individual plots)
         categorical_cols = self.df.select_dtypes(include=['object']).columns
-        n_cat = len(categorical_cols)
+        if len(categorical_cols) > 0:
+            print(f"2. Membuat {len(categorical_cols)} plot distribusi kategorikal...")
+            for col in categorical_cols:
+                plt.figure(figsize=(10, 6))
+                self.df[col].value_counts().plot(kind='bar', color='lightcoral', alpha=0.7)
+                plt.title(f'Distribution of {col}', fontsize=14, fontweight='bold')
+                plt.xlabel(col, fontsize=12)
+                plt.ylabel('Count', fontsize=12)
+                plt.xticks(rotation=45, ha='right')
+                plt.grid(True, alpha=0.3, axis='y')
 
-        start_idx = 7
-        for i, col in enumerate(categorical_cols[:6], start_idx):
-            if i > 12:
-                break
-            ax = fig.add_subplot(4, 3, i)
-            self.df[col].value_counts().plot(kind='bar', ax=ax, color='lightcoral')
-            ax.set_title(f'Distribution of {col}')
-            ax.set_xlabel(col)
-            ax.set_ylabel('Count')
-            plt.setp(ax.get_xticklabels(), rotation=45, ha='right')
+                if save_mode:
+                    filename = f"{col.replace('/', '_')}_distribution.png"
+                    filepath = os.path.join(output_dir, filename)
+                    plt.savefig(filepath, dpi=300, bbox_inches='tight')
+                    plt.close()
+                else:
+                    plt.show()
+                    plt.close()
 
-        # 3. correlation heatmap (untuk kolom numerik)
-        if n_num > 1:
-            ax = fig.add_subplot(4, 3, 12)
+        # 3. Correlation heatmap (separate plot)
+        if len(numerical_cols) > 1:
+            print("3. Membuat correlation matrix heatmap...")
+            plt.figure(figsize=(12, 10))
             corr_matrix = self.df[numerical_cols].corr()
             sns.heatmap(corr_matrix, annot=True, cmap='coolwarm', center=0,
-                       square=True, linewidths=1, cbar_kws={"shrink": 0.5}, ax=ax)
-            ax.set_title('Correlation Matrix')
+                       square=True, linewidths=1, cbar_kws={"shrink": 0.8},
+                       fmt='.2f', annot_kws={'size': 8})
+            plt.title('Correlation Matrix - Numerical Features', fontsize=14, fontweight='bold')
+            plt.tight_layout()
 
-        plt.tight_layout()
+            if save_mode:
+                filepath = os.path.join(output_dir, 'correlation_matrix.png')
+                plt.savefig(filepath, dpi=300, bbox_inches='tight')
+                plt.close()
+            else:
+                plt.show()
+                plt.close()
 
-        if save_path:
-            plt.savefig(save_path, dpi=300, bbox_inches='tight')
-            print(f"\nvisualisasi disimpan ke: {save_path}")
-        else:
-            plt.show()
+        # 4. Target distribution (separate plot)
+        if 'placement_status' in self.df.columns:
+            print("4. Membuat target distribution plot...")
+            fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 6))
 
-        plt.close()
+            # Count plot
+            self.df['placement_status'].value_counts().plot(kind='bar', ax=ax1, color=['#2ecc71', '#e74c3c'])
+            ax1.set_title('Placement Status Count', fontsize=14, fontweight='bold')
+            ax1.set_xlabel('Placement Status', fontsize=12)
+            ax1.set_ylabel('Count', fontsize=12)
+            ax1.tick_params(axis='x', rotation=0)
+            ax1.grid(True, alpha=0.3, axis='y')
+
+            # Percentage plot
+            self.df['placement_status'].value_counts(normalize=True).plot(kind='bar', ax=ax2, color=['#2ecc71', '#e74c3c'])
+            ax2.set_title('Placement Status Percentage', fontsize=14, fontweight='bold')
+            ax2.set_xlabel('Placement Status', fontsize=12)
+            ax2.set_ylabel('Percentage', fontsize=12)
+            ax2.tick_params(axis='x', rotation=0)
+            ax2.grid(True, alpha=0.3, axis='y')
+
+            plt.tight_layout()
+
+            if save_mode:
+                filepath = os.path.join(output_dir, 'target_distribution.png')
+                plt.savefig(filepath, dpi=300, bbox_inches='tight')
+                plt.close()
+                print(f"\n[OK] Semua visualisasi disimpan ke: {output_dir}")
+            else:
+                plt.show()
+                plt.close()
 
     def preprocess_data(
         self,
