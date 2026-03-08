@@ -1,5 +1,5 @@
 import numpy as np
-from typing import Set, List, Tuple
+from typing import Set, List, Tuple, Union
 
 
 class Value:
