@@ -3,14 +3,14 @@ import numpy as np
 
 
 class BaseModel(ABC):
-    """Kelas abstrak base untuk semua model."""
+    """Kelas abstrak base untuk semua model"""
 
     def __init__(self):
         self.is_fitted = False
 
     @abstractmethod
     def forward(self, X: np.ndarray) -> np.ndarray:
-        """Forward propagation."""
+        """Forward propagation"""
         pass
 
     @abstractmethod
@@ -23,20 +23,20 @@ class BaseModel(ABC):
               X_val: np.ndarray = None, y_val: np.ndarray = None,
               batch_size: int = 32, learning_rate: float = 0.01,
               epochs: int = 100, verbose: int = 1) -> dict:
-        """Latih model."""
+        """Latih model"""
         pass
 
     @abstractmethod
     def predict(self, X: np.ndarray) -> np.ndarray:
-        """Lakukan prediksi."""
+        """Lakukan prediksi"""
         pass
 
     @abstractmethod
     def save(self, filepath: str) -> None:
-        """Simpan model ke file."""
+        """Simpan model ke file"""
         pass
 
     @abstractmethod
     def load(self, filepath: str) -> None:
-        """Load model dari file."""
+        """Load model dari file"""
         pass

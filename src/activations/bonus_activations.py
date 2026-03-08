@@ -32,37 +32,3 @@ class ELU(BaseActivation):
     def backward(self, x: np.ndarray) -> np.ndarray:
         """f'(x) = 1 jika x > 0, else alpha * exp(x)"""
         return np.where(x > 0, 1.0, self.alpha * np.exp(x))
-
-
-class GELU(BaseActivation):
-    """gelu: f(x) = 0.5 * x * (1 + tanh(sqrt(2/π) * (x + 0.044715 * x^3)))"""
-
-    def forward(self, x: np.ndarray) -> np.ndarray:
-        """f(x) ≈ 0.5 * x * (1 + tanh(sqrt(2/π) * (x + 0.044715 * x^3)))"""
-        return 0.5 * x * (1 + np.tanh(np.sqrt(2 / np.pi) * (x + 0.044715 * x ** 3)))
-
-    def backward(self, x: np.ndarray) -> np.ndarray:
-        """turunan gelu (numerical approximation)"""
-        tanh_part = np.tanh(np.sqrt(2 / np.pi) * (x + 0.044715 * x ** 3))
-        sech_sq = 1 - tanh_part ** 2
-
-        cdf = 0.5 * (1 + tanh_part)
-        pdf = 0.5 * sech_sq * (np.sqrt(2 / np.pi) * (1 + 0.134145 * x ** 2))
-
-        return cdf + x * pdf
-
-
-class Swish(BaseActivation):
-    """swish: f(x) = x * sigmoid(x)"""
-
-    def forward(self, x: np.ndarray) -> np.ndarray:
-        """f(x) = x * sigmoid(x)"""
-        x = np.clip(x, -500, 500)
-        sig = 1 / (1 + np.exp(-x))
-        return x * sig
-
-    def backward(self, x: np.ndarray) -> np.ndarray:
-        """f'(x) = sigmoid(x) + x * sigmoid(x) * (1 - sigmoid(x))"""
-        x = np.clip(x, -500, 500)
-        sig = 1 / (1 + np.exp(-x))
-        return sig + x * sig * (1 - sig)

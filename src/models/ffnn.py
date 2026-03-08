@@ -21,9 +21,21 @@ class FFNN(BaseModel):
         loss_function: str = 'mse',
         initializer: str = 'uniform',
         learning_rate: float = 0.01,
-        regularizer: Optional[Dict] = None
+        regularizer: Optional[Dict] = None,
+        normalization: Optional[List[str]] = None
     ):
-        """Inisialisasi FFNN."""
+        """
+        Inisialisasi FFNN.
+
+        Argumen:
+            layer_sizes: List ukuran setiap layer (termasuk input dan output)
+            activations: List fungsi aktivasi untuk setiap hidden layer
+            loss_function: Fungsi loss ('mse', 'binary_cross_entropy', 'categorical_cross_entropy')
+            initializer: Metode inisialisasi bobot
+            learning_rate: Learning rate untuk optimizer
+            regularizer: Konfigurasi regularisasi {'type': 'l1'/'l2', 'lambda_param': float}
+            normalization: List jenis normalization untuk setiap layer (None, 'rmsnorm', 'layernorm')
+        """
         super().__init__()
 
         if len(layer_sizes) < 2:
@@ -37,20 +49,28 @@ class FFNN(BaseModel):
         self.initializer = initializer
         self.learning_rate = learning_rate
         self.regularizer = regularizer
+        self.normalization = normalization or [None] * (len(layer_sizes) - 1)
+
+        if len(self.normalization) != len(layer_sizes) - 1:
+            raise ValueError("Jumlah normalization harus sama dengan jumlah layer - 1")
 
         self.weights = []
         self.biases = []
         self.weight_gradients = []
         self.bias_gradients = []
+        self.normalization_layers = []
 
         self._initialize_parameters()
 
     def _initialize_parameters(self) -> None:
-        """Inisialisasi bobot dan bias."""
-        from ..initializers import ZeroInitializer, UniformInitializer, NormalInitializer
+        """Inisialisasi bobot, bias, dan normalization layers."""
+        from ..initializers import (ZeroInitializer, UniformInitializer, NormalInitializer,
+                                     XavierInitializer, HeInitializer)
+        from ..layers import RMSNormLayer, LayerNormalization
 
         self.weights = []
         self.biases = []
+        self.normalization_layers = []
 
         # Pilih initializer yang sesuai
         if self.initializer == 'zero':
@@ -59,6 +79,10 @@ class FFNN(BaseModel):
             init = UniformInitializer(lower_bound=-0.5, upper_bound=0.5)
         elif self.initializer == 'normal':
             init = NormalInitializer(mean=0.0, variance=0.1)
+        elif self.initializer == 'xavier':
+            init = XavierInitializer(uniform=True)
+        elif self.initializer == 'he':
+            init = HeInitializer(uniform=False)
         else:
             raise ValueError(f"Initializer tidak dikenal: {self.initializer}")
 
@@ -73,6 +97,17 @@ class FFNN(BaseModel):
 
             self.weights.append(weight)
             self.biases.append(bias)
+
+            # Buat normalization layer jika diperlukan
+            norm_type = self.normalization[i]
+            if norm_type == 'rmsnorm':
+                norm_layer = RMSNormLayer(dim=output_size)
+            elif norm_type == 'layernorm':
+                norm_layer = LayerNormalization(dim=output_size)
+            else:
+                norm_layer = None
+
+            self.normalization_layers.append(norm_layer)
 
     def forward(self, X: np.ndarray) -> np.ndarray:
         """
@@ -99,6 +134,11 @@ class FFNN(BaseModel):
             z = np.dot(current_output, self.weights[i]) + self.biases[i]
             self.layer_outputs.append(z)
 
+            # Apply normalization jika ada (sebelum activation)
+            norm_layer = self.normalization_layers[i]
+            if norm_layer is not None:
+                z = norm_layer.forward(z, training=True)
+
             # Apply activation function
             activation_name = self.activations[i].lower()
 
@@ -112,6 +152,12 @@ class FFNN(BaseModel):
                 activation = Tanh()
             elif activation_name == 'softmax':
                 activation = Softmax()
+            elif activation_name == 'leakyrelu':
+                from ..activations import LeakyReLU
+                activation = LeakyReLU()
+            elif activation_name == 'elu':
+                from ..activations import ELU
+                activation = ELU()
             else:
                 raise ValueError(f"Activation function tidak dikenal: {activation_name}")
 
@@ -155,12 +201,18 @@ class FFNN(BaseModel):
                 activation = Tanh()
             elif activation_name == 'softmax':
                 activation = Softmax()
+            elif activation_name == 'leakyrelu':
+                from ..activations import LeakyReLU
+                activation = LeakyReLU()
+            elif activation_name == 'elu':
+                from ..activations import ELU
+                activation = ELU()
             else:
                 raise ValueError(f"Activation function tidak dikenal: {activation_name}")
 
             # Hitung gradient dari activation function
             # Gradient sebelum activation = gradient setelah activation * turunan activation
-            z = self.layer_outputs[i]  # Output sebelum activation
+            z = self.layer_outputs[i]  # Output sebelum activation (dan normalization)
 
             if activation_name == 'softmax':
                 # Untuk softmax dengan cross-entropy, gradient = s - y
@@ -169,6 +221,12 @@ class FFNN(BaseModel):
             else:
                 # Untuk activation function lain
                 activation_grad = current_grad * activation.backward(z)
+
+            # Jika ada normalization layer, hitung gradient melalui normalization
+            norm_layer = self.normalization_layers[i]
+            if norm_layer is not None:
+                # Backward pass melalui normalization
+                activation_grad = norm_layer.backward(activation_grad)
 
             # Input ke layer ini
             layer_input = self.layer_inputs[i]
@@ -365,6 +423,15 @@ class FFNN(BaseModel):
 
     def save(self, filepath: str) -> None:
         """Simpan model ke file."""
+        # Simpan normalization layers parameters
+        normalization_params = []
+        for norm_layer in self.normalization_layers:
+            if norm_layer is not None:
+                norm_params = norm_layer.get_params()
+                normalization_params.append(norm_params)
+            else:
+                normalization_params.append(None)
+
         model_data = {
             'layer_sizes': self.layer_sizes,
             'activations': self.activations,
@@ -372,8 +439,10 @@ class FFNN(BaseModel):
             'initializer': self.initializer,
             'learning_rate': self.learning_rate,
             'regularizer': self.regularizer,
+            'normalization': self.normalization,
             'weights': self.weights,
             'biases': self.biases,
+            'normalization_params': normalization_params,
             'is_fitted': self.is_fitted
         }
         with open(filepath, 'wb') as f:
@@ -381,6 +450,8 @@ class FFNN(BaseModel):
 
     def load(self, filepath: str) -> None:
         """Load model dari file."""
+        from ..layers import RMSNormLayer, LayerNormalization
+
         with open(filepath, 'rb') as f:
             model_data = pickle.load(f)
         self.layer_sizes = model_data['layer_sizes']
@@ -388,10 +459,29 @@ class FFNN(BaseModel):
         self.loss_function = model_data['loss_function']
         self.initializer = model_data['initializer']
         self.learning_rate = model_data['learning_rate']
-        self.regularizer = model_data['regularizer']
+        self.regularizer = model_data.get('regularizer', None)
+        self.normalization = model_data.get('normalization', [None] * (len(self.layer_sizes) - 1))
         self.weights = model_data['weights']
         self.biases = model_data['biases']
         self.is_fitted = model_data['is_fitted']
+
+        # Restore normalization layers
+        self.normalization_layers = []
+        normalization_params = model_data.get('normalization_params', [None] * len(self.normalization))
+
+        for norm_type, norm_params in zip(self.normalization, normalization_params):
+            if norm_type == 'rmsnorm':
+                norm_layer = RMSNormLayer(dim=self.layer_sizes[1])  # Temp dim, will be overwritten
+                if norm_params:
+                    norm_layer.set_params(norm_params)
+            elif norm_type == 'layernorm':
+                norm_layer = LayerNormalization(dim=self.layer_sizes[1])  # Temp dim
+                if norm_params:
+                    norm_layer.set_params(norm_params)
+            else:
+                norm_layer = None
+
+            self.normalization_layers.append(norm_layer)
 
     def plot_weight_distribution(self, layers: List[int] = None) -> None:
         """

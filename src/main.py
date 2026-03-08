@@ -10,6 +10,7 @@ if parent_dir not in sys.path:
     sys.path.insert(0, parent_dir)
 
 from src.models.ffnn import FFNN
+from src.models.autodiff_ffnn import AutodiffFFNN
 from src.utils.plotting import plot_training_history
 from src.utils.pipeline import prepare_dataset, evaluate_model, save_training_artifacts
 import matplotlib.pyplot as plt
@@ -41,8 +42,8 @@ def parse_args():
                         choices=['zero', 'uniform', 'normal', 'xavier', 'he'],
                         help='metode inisialisasi bobot')
     parser.add_argument('--optimizer', type=str, default='gd',
-                        choices=['gd', 'adam'],
-                        help='optimizer (gd=gradient descent, adam)')
+                        choices=['gd'],
+                        help='optimizer (gd=gradient descent)')
     parser.add_argument('--learning-rate', type=float, default=0.01,
                         help='learning rate')
     parser.add_argument('--batch-size', type=int, default=32,
@@ -61,6 +62,11 @@ def parse_args():
                         dest='lambda_param',
                         help='parameter lambda regularisasi')
 
+    # normalization
+    parser.add_argument('--normalization', type=str, nargs='+', default=None,
+                        choices=['none', 'rmsnorm', 'layernorm'],
+                        help='normalization untuk setiap layer (contoh: --normalization rmsnorm layernorm none)')
+
     # output
     parser.add_argument('--output-dir', type=str, default='results',
                         help='direktori untuk menyimpan hasil')
@@ -72,6 +78,8 @@ def parse_args():
                         help='lewati training dan hanya evaluasi')
     parser.add_argument('--model-path', type=str, default=None,
                         help='path untuk memuat model yang sudah dilatih')
+    parser.add_argument('--use-autodiff', action='store_true',
+                        help='gunakan autodiff.Value untuk automatic differentiation')
 
     return parser.parse_args()
 
@@ -117,6 +125,42 @@ def main():
             initializer=args.initializer
         )
         model.load(args.model_path)
+    elif args.use_autodiff:
+        # gunakan AutodiffFFNN (40% bonus)
+        print("menggunakan AutodiffFFNN dengan autodiff.Value")
+
+        # cek keterbatasan autodiff
+        if args.regularizer:
+            print("[WARNING] Regularizer tidak didukung dalam mode autodiff, diabaikan.")
+        if args.normalization and any(n is not None for n in args.normalization):
+            print("[WARNING] Normalization tidak didukung dalam mode autodiff, diabaikan.")
+
+        # ukuran layer default jika tidak ditentukan
+        if args.layers is None:
+            n_hidden = 2
+            hidden_neurons = 32
+            args.layers = [info['n_features']] + [hidden_neurons] * n_hidden + [info['n_classes']]
+
+        # aktivasi default jika tidak ditentukan
+        if args.activations is None:
+            n_activations = len(args.layers) - 1
+            args.activations = ['relu'] * (n_activations - 1) + ['softmax']
+
+        print(f"arsitektur:")
+        print(f"  ukuran layer: {args.layers}")
+        print(f"  aktivasi: {args.activations}")
+        print(f"  fungsi loss: {args.loss}")
+        print(f"  inisialisasi: {args.initializer}")
+        print(f"  mode: AUTODIFF (40% bonus)")
+
+        model = AutodiffFFNN(
+            layer_sizes=args.layers,
+            activations=args.activations,
+            loss_function=args.loss,
+            initializer=args.initializer,
+            learning_rate=args.learning_rate,
+            use_autodiff=True
+        )
     else:
         # buat model baru
         # ukuran layer default jika tidak ditentukan
@@ -146,13 +190,32 @@ def main():
             }
             print(f"  regularizer: {args.regularizer} (lambda={args.lambda_param})")
 
+        # setup normalization
+        n_layers = len(args.layers) - 1  # Jumlah hidden + output layer
+        if args.normalization is None:
+            # Default: tidak ada normalization
+            normalization = [None] * n_layers
+        else:
+            # Konversi 'none' string ke None
+            normalization = []
+            for i in range(n_layers):
+                if i < len(args.normalization):
+                    norm_type = args.normalization[i]
+                    normalization.append(None if norm_type == 'none' else norm_type)
+                else:
+                    # Jika kurang, gunakan normalization terakhir
+                    normalization.append(args.normalization[-1] if args.normalization[-1] != 'none' else None)
+
+            print(f"  normalization: {normalization}")
+
         model = FFNN(
             layer_sizes=args.layers,
             activations=args.activations,
             loss_function=args.loss,
             initializer=args.initializer,
             learning_rate=args.learning_rate,
-            regularizer=regularizer
+            regularizer=regularizer,
+            normalization=normalization
         )
 
     # 3. training
@@ -165,16 +228,69 @@ def main():
         print(f"  learning rate: {args.learning_rate}")
         print(f"  verbose: {args.verbose}")
 
-        history = model.train(
-            X_train=X_train,
-            y_train=y_train,
-            X_val=X_val,
-            y_val=y_val,
-            batch_size=args.batch_size,
-            learning_rate=args.learning_rate,
-            epochs=args.epochs,
-            verbose=args.verbose
-        )
+        # training berbeda untuk AutodiffFFNN vs FFNN
+        if args.use_autodiff:
+            # training loop untuk AutodiffFFNN
+            print("\n menggunakan training loop autodiff (lebih lambat tapi edukatif)...")
+
+            history = {
+                'train_loss': [],
+                'val_loss': [],
+                'train_accuracy': [],
+                'val_accuracy': []
+            }
+
+            n_samples = X_train.shape[0]
+            n_batches = max(1, n_samples // args.batch_size)
+
+            for epoch in range(args.epochs):
+                epoch_train_loss = 0.0
+
+                # mini-batch training
+                for batch_idx in range(n_batches):
+                    start_idx = batch_idx * args.batch_size
+                    end_idx = min(start_idx + args.batch_size, n_samples)
+
+                    X_batch = X_train[start_idx:end_idx]
+                    y_batch = y_train[start_idx:end_idx]
+
+                    # training step
+                    result = model.train_step(X_batch, y_batch, X_val, y_val)
+                    epoch_train_loss += result['loss']
+
+                # average metrics
+                epoch_train_loss /= n_batches
+
+                # validation
+                val_pred = model.forward(X_val)
+                val_loss = -np.mean(y_val * np.log(val_pred + 1e-15))
+
+                # accuracy
+                train_pred = model.forward(X_train)
+                train_acc = np.mean(np.argmax(train_pred, axis=1) == np.argmax(y_train, axis=1))
+                val_acc = np.mean(np.argmax(val_pred, axis=1) == np.argmax(y_val, axis=1))
+
+                history['train_loss'].append(epoch_train_loss)
+                history['val_loss'].append(val_loss)
+                history['train_accuracy'].append(train_acc)
+                history['val_accuracy'].append(val_acc)
+
+                if args.verbose == 1 and (epoch % 10 == 0 or epoch == args.epochs - 1):
+                    print(f"epoch {epoch+1}/{args.epochs} - "
+                          f"loss: {epoch_train_loss:.4f} - val_loss: {val_loss:.4f} - "
+                          f"train_acc: {train_acc:.4f} - val_acc: {val_acc:.4f}")
+        else:
+            # training loop standard untuk FFNN
+            history = model.train(
+                X_train=X_train,
+                y_train=y_train,
+                X_val=X_val,
+                y_val=y_val,
+                batch_size=args.batch_size,
+                learning_rate=args.learning_rate,
+                epochs=args.epochs,
+                verbose=args.verbose
+            )
 
         # plot training history
         fig = plot_training_history(history)
@@ -182,14 +298,29 @@ def main():
         print(f"\ntraining history disimpan ke: {os.path.join(args.output_dir, 'training_history.png')}")
 
         # simpan model dan training history
-        model_path, history_path = save_training_artifacts(
-            model=model,
-            history=history,
-            output_dir=args.output_dir,
-            model_name=args.model_name
-        )
-        print(f"model disimpan ke: {model_path}")
-        print(f"training history disimpan ke: {history_path}")
+        if args.use_autodiff:
+            # AutodiffFFNN menggunakan save() method
+            model_path = os.path.join(args.output_dir, f'{args.model_name}.pkl')
+            model.save(model_path)
+
+            # save history separately
+            import pickle
+            history_path = os.path.join(args.output_dir, f'{args.model_name}_history.pkl')
+            with open(history_path, 'wb') as f:
+                pickle.dump(history, f)
+
+            print(f"model disimpan ke: {model_path}")
+            print(f"training history disimpan ke: {history_path}")
+        else:
+            # FFNN menggunakan utility function
+            model_path, history_path = save_training_artifacts(
+                model=model,
+                history=history,
+                output_dir=args.output_dir,
+                model_name=args.model_name
+            )
+            print(f"model disimpan ke: {model_path}")
+            print(f"training history disimpan ke: {history_path}")
 
     # 4. evaluasi
     print("\n[4] EVALUASI")
