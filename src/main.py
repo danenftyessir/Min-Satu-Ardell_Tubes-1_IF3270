@@ -383,10 +383,5 @@ def main():
         print(f"  - {args.model_name}.pkl (model)")
         print(f"  - {args.model_name}_history.pkl (training history)")
 
-    print("\n" + "="*70)
-    print("PROGRAM SELESAI DENGAN BERHASIL!")
-    print("="*70)
-
-
 if __name__ == "__main__":
     main()
