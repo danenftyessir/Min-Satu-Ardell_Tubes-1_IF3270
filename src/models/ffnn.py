@@ -276,7 +276,8 @@ class FFNN(BaseModel):
         batch_size: int = 32,
         learning_rate: float = None,
         epochs: int = 100,
-        verbose: int = 1
+        verbose: int = 1,
+        optimizer=None
     ) -> Dict[str, List[float]]:
         """
         Latih neural network dengan mini-batch gradient descent.
@@ -290,6 +291,7 @@ class FFNN(BaseModel):
             learning_rate: Learning rate untuk update bobot
             epochs: Jumlah epoch training
             verbose: Level verbosity (0: silent, 1: progress bar)
+            optimizer: Instance optimizer (optional). Jika None, gunakan manual update.
 
         kembali:
             Dictionary berisi training history
@@ -362,9 +364,19 @@ class FFNN(BaseModel):
                 self.backward(grad)
 
                 # Update bobot
-                for i in range(len(self.weights)):
-                    self.weights[i] -= learning_rate * self.weight_gradients[i]
-                    self.biases[i] -= learning_rate * self.bias_gradients[i]
+                if optimizer is not None:
+                    # Use optimizer for weight update
+                    optimizer.update(
+                        self.weights,
+                        self.biases,
+                        self.weight_gradients,
+                        self.bias_gradients
+                    )
+                else:
+                    # Manual gradient descent update (backward compatibility)
+                    for i in range(len(self.weights)):
+                        self.weights[i] -= learning_rate * self.weight_gradients[i]
+                        self.biases[i] -= learning_rate * self.bias_gradients[i]
 
             # Rata-rata training loss
             avg_train_loss = epoch_train_loss / n_batches
