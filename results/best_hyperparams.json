@@ -1,0 +1,29 @@
+{
+  "gd": {
+    "layer_sizes": [
+      11,
+      64,
+      64,
+      32,
+      2
+    ],
+    "learning_rate": 0.005,
+    "batch_size": 64,
+    "epochs": 150,
+    "accuracy": 0.7655
+  },
+  "adam": {
+    "layer_sizes": [
+      11,
+      128,
+      64,
+      32,
+      2
+    ],
+    "learning_rate": 0.0005,
+    "weight_decay": 0.01,
+    "batch_size": 16,
+    "epochs": 150,
+    "accuracy": 0.7695
+  }
+}

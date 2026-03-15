@@ -11,6 +11,7 @@ if parent_dir not in sys.path:
 
 from src.models.ffnn import FFNN
 from src.models.autodiff_ffnn import AutodiffFFNN
+from src.optimizers import Adam
 from src.utils.plotting import plot_training_history
 from src.utils.pipeline import prepare_dataset, evaluate_model, save_training_artifacts
 import matplotlib.pyplot as plt
@@ -179,7 +180,75 @@ def main():
         print(f"  aktivasi: {args.activations}")
         print(f"  fungsi loss: {args.loss}")
         print(f"  inisialisasi: {args.initializer}")
-        print(f"  optimizer: {args.optimizer}")
+
+        # Check for saved hyperparameter tuning results
+        from src.utils.tune_hyperparams import load_saved_params
+        saved_params = load_saved_params()
+
+        # Interactive tuning selection
+        print("\n" + "="*70)
+        print("HYPERPARAMETER TUNING")
+        print("="*70)
+        if saved_params:
+            print(f"[1] Gunakan parameter optimal (tersimpan)")
+            print(f"    GD: lr={saved_params['gd']['learning_rate']}, batch={saved_params['gd']['batch_size']}, acc={saved_params['gd']['accuracy']:.4f}")
+            print(f"    Adam: lr={saved_params['adam']['learning_rate']}, wd={saved_params['adam']['weight_decay']}, batch={saved_params['adam']['batch_size']}, acc={saved_params['adam']['accuracy']:.4f}")
+            print("[2] Jalankan hyperparameter tuning baru")
+        else:
+            print("[1] Jalankan hyperparameter tuning baru")
+            print("    (Belum ada hasil tuning tersimpan)")
+        print("="*70)
+
+        tuning_choice = input("Masukkan pilihan [1/2]: ").strip()
+
+        if tuning_choice == '2' or not saved_params:
+            # Run new tuning
+            print("\nMenjalankan hyperparameter tuning baru...")
+            from src.utils.tune_hyperparams import main as run_tuning
+            run_tuning()
+            saved_params = load_saved_params()
+            print("\nTuning selesai! Lanjutkan dengan training...")
+        else:
+            print("\nMenggunakan parameter tersimpan...")
+
+        # Now select which optimizer to use
+        print("\n" + "="*70)
+        print("PILIH OPTIMIZER")
+        print("="*70)
+        print("[1] Gradient Descent (GD)")
+        print("[2] Adam Optimizer")
+        print("[3] Bandingkan GD dan Adam")
+        print("="*70)
+
+        pilihan = input("Masukkan pilihan [1/2/3]: ").strip()
+
+        if pilihan == '1':
+            optimizer_mode = 'gd'
+        elif pilihan == '2':
+            optimizer_mode = 'adam'
+        else:
+            optimizer_mode = 'both'
+
+        print(f"  optimizer: {optimizer_mode}")
+
+        # Use saved params if available
+        if saved_params and info['n_features'] == 11:
+            # Only use saved architecture if same feature count (old preprocessing)
+            saved_arch = saved_params['adam']['layer_sizes']
+            print("\n>> Menggunakan parameter optimal tersimpan:")
+            print(f"   Arsitektur: {saved_arch}")
+            print(f"   GD: lr={saved_params['gd']['learning_rate']}, batch={saved_params['gd']['batch_size']}")
+            print(f"   Adam: lr={saved_params['adam']['learning_rate']}, wd={saved_params['adam']['weight_decay']}, batch={saved_params['adam']['batch_size']}")
+            args.layers = saved_arch
+            args.activations = ['relu'] * (len(saved_arch) - 2) + ['softmax']
+        else:
+            # New feature engineering - use dynamic architecture based on n_features
+            n_features = info['n_features']
+            print(f"\n>> Menggunakan arsitektur baru ({n_features} features):")
+            print(f"   GD: lr={saved_params['gd']['learning_rate'] if saved_params else 0.01}, batch={saved_params['gd']['batch_size'] if saved_params else 32}")
+            print(f"   Adam: lr={saved_params['adam']['learning_rate'] if saved_params else 0.001}, wd={saved_params['adam']['weight_decay'] if saved_params else 0.01}, batch={saved_params['adam']['batch_size'] if saved_params else 16}")
+            args.layers = [n_features, 64, 32, 2]
+            args.activations = ['relu', 'relu', 'softmax']
 
         # setup regularizer
         regularizer = None
@@ -281,16 +350,161 @@ def main():
                           f"train_acc: {train_acc:.4f} - val_acc: {val_acc:.4f}")
         else:
             # training loop standard untuk FFNN
-            history = model.train(
-                X_train=X_train,
-                y_train=y_train,
-                X_val=X_val,
-                y_val=y_val,
-                batch_size=args.batch_size,
-                learning_rate=args.learning_rate,
-                epochs=args.epochs,
-                verbose=args.verbose
-            )
+            if optimizer_mode == 'both':
+                # ============ Training dengan GD ============
+                print("\n" + "="*70)
+                print("TRAINING DENGAN GRADIENT DESCENT")
+                print("="*70)
+
+                # Use saved params or args
+                gd_lr = saved_params['gd']['learning_rate'] if saved_params else args.learning_rate
+                gd_bs = saved_params['gd']['batch_size'] if saved_params else args.batch_size
+
+                model_gd = FFNN(
+                    layer_sizes=args.layers,
+                    activations=args.activations,
+                    loss_function=args.loss,
+                    initializer=args.initializer,
+                    learning_rate=gd_lr,
+                    regularizer=regularizer,
+                    normalization=normalization
+                )
+
+                history_gd = model_gd.train(
+                    X_train=X_train,
+                    y_train=y_train,
+                    X_val=X_val,
+                    y_val=y_val,
+                    batch_size=gd_bs,
+                    learning_rate=gd_lr,
+                    epochs=args.epochs,
+                    verbose=args.verbose,
+                    optimizer=None,
+                    patience=5
+                )
+
+                # Evaluate GD
+                y_pred_gd = model_gd.predict(X_test)
+                y_test_labels = np.argmax(y_test, axis=1) if y_test.ndim > 1 else y_test
+                acc_gd = np.mean(y_pred_gd == y_test_labels)
+
+                # ============ Training dengan Adam ============
+                print("\n" + "="*70)
+                print("TRAINING DENGAN ADAM OPTIMIZER")
+                print("="*70)
+
+                # Use saved params or defaults
+                adam_lr = saved_params['adam']['learning_rate'] if saved_params else 0.0005
+                adam_wd = saved_params['adam']['weight_decay'] if saved_params else 0.01
+                adam_bs = saved_params['adam']['batch_size'] if saved_params else 16
+
+                model_adam = FFNN(
+                    layer_sizes=args.layers,
+                    activations=args.activations,
+                    loss_function=args.loss,
+                    initializer=args.initializer,
+                    learning_rate=adam_lr,
+                    regularizer=regularizer,
+                    normalization=normalization
+                )
+
+                adam_optimizer = Adam(learning_rate=adam_lr, weight_decay=adam_wd)
+                history_adam = model_adam.train(
+                    X_train=X_train,
+                    y_train=y_train,
+                    X_val=X_val,
+                    y_val=y_val,
+                    batch_size=adam_bs,
+                    learning_rate=0.0005,
+                    epochs=args.epochs,
+                    verbose=args.verbose,
+                    optimizer=adam_optimizer,
+                    patience=5
+                )
+
+                # Evaluate Adam
+                y_pred_adam = model_adam.predict(X_test)
+                acc_adam = np.mean(y_pred_adam == y_test_labels)
+
+                # Display Adam Learning Rate Info
+                adam_stats = adam_optimizer.get_stats()
+                print("\n" + "="*70)
+                print("ADAM LEARNING RATE INFO")
+                print("="*70)
+                print(f"Base Learning Rate: {adam_stats['base_learning_rate']}")
+                print(f"Beta1 (momentum): {adam_stats['beta1']}")
+                print(f"Beta2 (variance): {adam_stats['beta2']}")
+                print(f"Current timestep: {adam_stats['timestep']}")
+                print(f"Effective LR per layer:")
+                for i, eff_lr in enumerate(adam_stats['effective_learning_rates']):
+                    print(f"  Layer {i+1}: {eff_lr:.6f} (base: {adam_stats['base_learning_rate']}, multiplier: {eff_lr/adam_stats['base_learning_rate']:.2f}x)")
+                print("="*70)
+
+                # ============ Comparison ============
+                print("\n" + "="*70)
+                print("HASIL PERBANDINGAN")
+                print("="*70)
+                print(f"Gradient Descent: {acc_gd:.4f} ({acc_gd*100:.2f}%)")
+                print(f"Adam Optimizer:  {acc_adam:.4f} ({acc_adam*100:.2f}%)")
+                if acc_adam > acc_gd:
+                    print(f"\n==> Adam lebih baik dari GD sebesar {(acc_adam - acc_gd)*100:.2f}%")
+                elif acc_gd > acc_adam:
+                    print(f"\n==> GD lebih baik dari Adam sebesar {(acc_gd - acc_adam)*100:.2f}%")
+                else:
+                    print("\n==> Keduanya memiliki performa yang sama")
+                print("="*70)
+
+                # Use Adam as the main model for saving
+                model = model_adam
+                history = history_adam
+
+            elif optimizer_mode == 'adam':
+                # Training dengan Adam (use saved params if available)
+                adam_lr = saved_params['adam']['learning_rate'] if saved_params else 0.0005
+                adam_wd = saved_params['adam']['weight_decay'] if saved_params else 0.01
+                adam_bs = saved_params['adam']['batch_size'] if saved_params else 16
+
+                adam_optimizer = Adam(learning_rate=adam_lr, weight_decay=adam_wd)
+                history = model.train(
+                    X_train=X_train,
+                    y_train=y_train,
+                    X_val=X_val,
+                    y_val=y_val,
+                    batch_size=adam_bs,
+                    learning_rate=adam_lr,
+                    epochs=args.epochs,
+                    verbose=args.verbose,
+                    optimizer=adam_optimizer,
+                    patience=5
+                )
+
+                # Display Adam Learning Rate Info
+                adam_stats = adam_optimizer.get_stats()
+                print("\n" + "="*70)
+                print("ADAM LEARNING RATE INFO")
+                print("="*70)
+                print(f"Base Learning Rate: {adam_stats['base_learning_rate']}")
+                print(f"Beta1 (momentum): {adam_stats['beta1']}")
+                print(f"Beta2 (variance): {adam_stats['beta2']}")
+                print(f"Current timestep: {adam_stats['timestep']}")
+                print(f"Effective LR per layer:")
+                for i, eff_lr in enumerate(adam_stats['effective_learning_rates']):
+                    print(f"  Layer {i+1}: {eff_lr:.6f} (base: {adam_stats['base_learning_rate']}, multiplier: {eff_lr/adam_stats['base_learning_rate']:.2f}x)")
+                print("="*70)
+            else:
+                # Training dengan GD (manual update)
+                history = model.train(
+                    X_train=X_train,
+                    y_train=y_train,
+                    X_val=X_val,
+                    y_val=y_val,
+                    batch_size=args.batch_size,
+                    learning_rate=args.learning_rate,
+                    epochs=args.epochs,
+                    verbose=args.verbose,
+                    optimizer=None,
+                    patience=5
+                )
 
         # plot training history
         fig = plot_training_history(history)

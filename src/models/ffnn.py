@@ -277,7 +277,9 @@ class FFNN(BaseModel):
         learning_rate: float = None,
         epochs: int = 100,
         verbose: int = 1,
-        optimizer=None
+        optimizer=None,
+        patience: int = 10,
+        min_delta: float = 0.0001
     ) -> Dict[str, List[float]]:
         """
         Latih neural network dengan mini-batch gradient descent.
@@ -292,8 +294,10 @@ class FFNN(BaseModel):
             epochs: Jumlah epoch training
             verbose: Level verbosity (0: silent, 1: progress bar)
             optimizer: Instance optimizer (optional). Jika None, gunakan manual update.
+            patience: Early stopping patience (epochs tanpa improvement)
+            min_delta: Minimum improvement untuk dianggap sebagai improvement
 
-        kembali:
+       回来:
             Dictionary berisi training history
         """
         from ..losses import MSELoss, BinaryCrossEntropyLoss, CategoricalCrossEntropyLoss
@@ -334,6 +338,12 @@ class FFNN(BaseModel):
         }
 
         n_samples = X_train.shape[0]
+
+        # Early stopping variables
+        best_val_loss = float('inf')
+        patience_counter = 0
+        best_weights = None
+        best_biases = None
 
         # Training loop
         for epoch in range(epochs):
@@ -387,6 +397,27 @@ class FFNN(BaseModel):
                 y_val_pred = self.forward(X_val)
                 val_loss = loss_fn.forward(y_val, y_val_pred)
                 history['val_loss'].append(val_loss)
+
+                # Early stopping check
+                if val_loss < best_val_loss - min_delta:
+                    # Improvement found
+                    best_val_loss = val_loss
+                    patience_counter = 0
+                    # Save best weights
+                    best_weights = [w.copy() for w in self.weights]
+                    best_biases = [b.copy() for b in self.biases]
+                else:
+                    patience_counter += 1
+
+                # Check if should stop
+                if patience_counter >= patience:
+                    if verbose == 1:
+                        print(f"\nEarly stopping at epoch {epoch + 1}. Best val_loss: {best_val_loss:.4f}")
+                    # Restore best weights
+                    if best_weights is not None:
+                        self.weights = best_weights
+                        self.biases = best_biases
+                    break
             else:
                 history['val_loss'].append(0.0)
 

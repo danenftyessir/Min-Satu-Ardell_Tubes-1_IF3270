@@ -25,7 +25,8 @@ class Adam(BaseOptimizer):
         learning_rate: float = 0.001,
         beta1: float = 0.9,
         beta2: float = 0.999,
-        epsilon: float = 1e-8
+        epsilon: float = 1e-8,
+        weight_decay: float = 0.0
     ):
         """
         Inisialisasi ADAM optimizer.
@@ -35,11 +36,13 @@ class Adam(BaseOptimizer):
             beta1: Exponential decay rate for first moment (default: 0.9)
             beta2: Exponential decay rate for second moment (default: 0.999)
             epsilon: Small constant for numerical stability (default: 1e-8)
+            weight_decay: L2 regularization strength (default: 0.0)
         """
         super().__init__(learning_rate)
         self.beta1 = beta1
         self.beta2 = beta2
         self.epsilon = epsilon
+        self.weight_decay = weight_decay
 
         # State variables untuk setiap parameter
         self.m_weights: List[np.ndarray] = []  # First moment for weights
@@ -92,24 +95,32 @@ class Adam(BaseOptimizer):
 
         # Update untuk setiap layer
         for i in range(len(weights)):
+            # Apply L2 regularization to gradients (weight_decay * w)
+            if self.weight_decay > 0:
+                reg_grad_weights = weight_gradients[i] + self.weight_decay * weights[i]
+                reg_grad_biases = bias_gradients[i]
+            else:
+                reg_grad_weights = weight_gradients[i]
+                reg_grad_biases = bias_gradients[i]
+
             # First moment (momentum): m_t = beta1 * m_{t-1} + (1 - beta1) * g
             self.m_weights[i] = (
                 self.beta1 * self.m_weights[i] +
-                (1 - self.beta1) * weight_gradients[i]
+                (1 - self.beta1) * reg_grad_weights
             )
             self.m_biases[i] = (
                 self.beta1 * self.m_biases[i] +
-                (1 - self.beta1) * bias_gradients[i]
+                (1 - self.beta1) * reg_grad_biases
             )
 
             # Second moment (RMSProp-like): v_t = beta2 * v_{t-1} + (1 - beta2) * g^2
             self.v_weights[i] = (
                 self.beta2 * self.v_weights[i] +
-                (1 - self.beta2) * (weight_gradients[i] ** 2)
+                (1 - self.beta2) * (reg_grad_weights ** 2)
             )
             self.v_biases[i] = (
                 self.beta2 * self.v_biases[i] +
-                (1 - self.beta2) * (bias_gradients[i] ** 2)
+                (1 - self.beta2) * (reg_grad_biases ** 2)
             )
 
             # Bias-corrected first moment estimate
@@ -127,6 +138,54 @@ class Adam(BaseOptimizer):
             biases[i] -= self.learning_rate * m_biases_hat / (
                 np.sqrt(v_biases_hat) + self.epsilon
             )
+
+    def get_effective_learning_rate(self) -> List[float]:
+        """
+        Hitung effective learning rate untuk setiap layer.
+
+        Effective LR = base_lr * m_hat / (sqrt(v_hat) + epsilon)
+
+        Returns:
+            List of average effective learning rates per layer
+        """
+        if self.t == 0:
+            return [self.learning_rate] * len(self.m_weights)
+
+        beta1_t = self.beta1 ** self.t
+        beta2_t = self.beta2 ** self.t
+        m_hat_factor = 1 - beta1_t
+        v_hat_factor = 1 - beta2_t
+
+        effective_lrs = []
+        for i in range(len(self.m_weights)):
+            m_hat = self.m_weights[i] / m_hat_factor
+            v_hat = self.v_weights[i] / v_hat_factor
+
+            # Effective LR per parameter
+            effective_lr = self.learning_rate * np.abs(m_hat) / (np.sqrt(v_hat) + self.epsilon)
+
+            # Rata-rata efektif LR untuk layer ini
+            effective_lrs.append(float(np.mean(effective_lr)))
+
+        return effective_lrs
+
+    def get_stats(self) -> dict:
+        """
+        Dapatkan statistik Adam optimizer state.
+
+        Returns:
+            Dictionary dengan info: base_lr, beta1, beta2, timestep,
+            weight_decay, dan effective_lr per layer
+        """
+        return {
+            'base_learning_rate': self.learning_rate,
+            'weight_decay': self.weight_decay,
+            'beta1': self.beta1,
+            'beta2': self.beta2,
+            'epsilon': self.epsilon,
+            'timestep': self.t,
+            'effective_learning_rates': self.get_effective_learning_rate()
+        }
 
     def reset(self) -> None:
         """Reset optimizer state (untuk training ulang)."""

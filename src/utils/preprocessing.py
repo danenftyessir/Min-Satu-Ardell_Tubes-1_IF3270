@@ -3,7 +3,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import StandardScaler, LabelEncoder
+from sklearn.preprocessing import StandardScaler, LabelEncoder, OneHotEncoder
 import os
 from pathlib import Path
 
@@ -238,20 +238,74 @@ class DataPreprocessor:
                 else:
                     self.df[col].fillna(self.df[col].mode()[0], inplace=True)
 
-        # 2. encode variabel kategorikal
-        print("\n2. encoding variabel kategorikal...")
-        categorical_cols = self.df.select_dtypes(include=['object']).columns
+        # 2. encode variabel kategorikal dengan ONE-HOT ENCODING
+        print("\n2. encoding variabel kategorikal (One-Hot Encoding)...")
+        categorical_cols = self.df.select_dtypes(include=['object']).columns.tolist()
+        categorical_cols = [col for col in categorical_cols if col != 'placement_status']
 
-        for col in categorical_cols:
-            if col != 'placement_status':  # jangan encode target di sini
-                le = LabelEncoder()
-                self.df[col] = le.fit_transform(self.df[col])
-                self.label_encoders[col] = le
+        # Identify numerical and categorical columns
+        numerical_cols = [col for col in self.df.columns if col != 'placement_status' and col not in categorical_cols]
+
+        print(f"   - numerical columns: {numerical_cols}")
+        print(f"   - categorical columns: {categorical_cols}")
+
+        # Store original categorical values before encoding
+        self.categorical_cols = categorical_cols
+        self.numerical_cols = numerical_cols
+
+        # One-Hot Encoding
+        self.onehot_encoder = OneHotEncoder(sparse_output=False, handle_unknown='ignore')
+
+        # Fit one-hot encoder on categorical columns
+        cat_data = self.df[categorical_cols]
+        self.onehot_encoder.fit(cat_data)
+
+        # Transform categorical columns to one-hot
+        cat_encoded = self.onehot_encoder.transform(cat_data)
+        cat_feature_names = self.onehot_encoder.get_feature_names_out(categorical_cols)
+
+        print(f"   - One-hot encoded features: {len(cat_feature_names)}")
+
+        # 2b. FEATURE ENGINEERING - Tambah interaction features
+        print("\n2b. feature engineering (interaction features)...")
+
+        # Create a new dataframe with numerical columns
+        df_features = self.df[numerical_cols].copy()
+
+        # Add one-hot encoded features
+        for i, name in enumerate(cat_feature_names):
+            df_features[name] = cat_encoded[:, i]
+
+        # Add interaction features
+        # cgpa × aptitude_score
+        df_features['cgpa_x_aptitude'] = self.df['cgpa'] * self.df['aptitude_score']
+
+        # cgpa × communication_score
+        df_features['cgpa_x_communication'] = self.df['cgpa'] * self.df['communication_score']
+
+        # aptitude × communication
+        df_features['aptitude_x_communication'] = self.df['aptitude_score'] * self.df['communication_score']
+
+        # cgpa × internship_quality
+        df_features['cgpa_x_internship_quality'] = self.df['cgpa'] * self.df['internship_quality_score']
+
+        # Total experience score
+        df_features['total_experience'] = self.df['internship_count'] + self.df['internship_quality_score']
+
+        # Skill score (normalized backlogs + other metrics)
+        df_features['skill_score'] = (self.df['aptitude_score'] + self.df['communication_score'] + self.df['internship_quality_score']) / 3
+
+        # High CGPA indicator
+        df_features['high_cgpa'] = (self.df['cgpa'] >= 7.5).astype(int)
+
+        print(f"   - Added interaction features: cgpa_x_aptitude, cgpa_x_communication, aptitude_x_communication, etc.")
+        print(f"   - Total features after engineering: {df_features.shape[1]}")
 
         # 3. siapkan fitur dan target
         print("\n3. menyiapkan fitur dan target...")
-        self.feature_columns = [col for col in self.df.columns if col != 'placement_status']
-        X = self.df[self.feature_columns].values
+        # Use df_features which now includes one-hot encoded + interaction features
+        self.feature_columns = list(df_features.columns)
+        X = df_features.values
         y = self.df['placement_status'].values
 
         # encode target
