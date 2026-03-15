@@ -211,12 +211,8 @@ def tune_gd_aggressive(X_train, y_train, X_val, y_val, X_test, y_test, time_limi
 
     for arch in architectures:
         n_transforms = len(arch) - 1  # number of transformations (layers - 1)
-        # Dynamic normalization options
-        normalization_options = [
-            [None] * n_transforms,           # No normalization
-            ['rmsnorm'] * n_transforms,      # RMSNorm
-            ['layernorm'] * n_transforms,     # LayerNorm
-        ]
+        # Single normalization option (None)
+        normalization_options = [[None] * n_transforms]
 
         for norm in normalization_options:
             for act in activation_options:

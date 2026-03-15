@@ -21,7 +21,7 @@
     "learning_rate": 0.005,
     "batch_size": 32,
     "epochs": 150,
-    "accuracy": 0.7615
+    "accuracy": 0.7575
   },
   "adam": {
     "layer_sizes": [
@@ -41,11 +41,11 @@
       "softmax"
     ],
     "initializer": "xavier",
-    "dropout_rate": 0.3,
+    "dropout_rate": 0.1,
     "learning_rate": 0.0005,
     "weight_decay": 0.01,
     "batch_size": 32,
     "epochs": 150,
-    "accuracy": 0.767
+    "accuracy": 0.777
   }
 }

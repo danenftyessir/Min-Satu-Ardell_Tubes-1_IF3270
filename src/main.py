@@ -89,6 +89,7 @@ def main():
     """fungsi utama."""
     args = parse_args()
 
+
     # buat direktori output
     os.makedirs(args.output_dir, exist_ok=True)
 
@@ -114,6 +115,15 @@ def main():
 
     # 2. bangun atau muat model
     print("\n[2] SETUP MODEL")
+    print("-" * 70)
+
+    # Tampilkan info bonus yang tersedia
+    print("\n>>> FITUR BONUS YANG TERSEDIA:")
+    print("  [40%] Autodiff      : --use-autodiff")
+    print("  [5%]  Aktivasi Bonus: leakyrelu, elu")
+    print("  [5%]  Inisialisasi  : xavier, he")
+    print("  [10%] Normalisasi  : rmsnorm, layernorm (--normalization rmsnorm)")
+    print("  [40%] Adam Optimizer: Pilih opsi 2 atau 3 di menu")
     print("-" * 70)
 
     if args.model_path and args.skip_train:
@@ -231,22 +241,32 @@ def main():
 
         print(f"  optimizer: {optimizer_mode}")
 
-        # Use saved params if available
-        if saved_params and info['n_features'] == 11:
-            # Only use saved architecture if same feature count (old preprocessing)
-            saved_arch = saved_params['adam']['layer_sizes']
+        # Use saved params if available - adjust architecture to match current features
+        n_features = info['n_features']
+        if saved_params:
+            # Adjust saved architecture to match current number of features
+            saved_arch_gd = saved_params['gd']['layer_sizes']
+            saved_arch_adam = saved_params['adam']['layer_sizes']
+
+            # Adjust first layer to current feature count, keep rest
+            arch_gd = [n_features] + saved_arch_gd[1:]
+            arch_adam = [n_features] + saved_arch_adam[1:]
+
             print("\n>> Menggunakan parameter optimal tersimpan:")
-            print(f"   Arsitektur: {saved_arch}")
+            print(f"   Arsitektur GD: {arch_gd}")
+            print(f"   Arsitektur Adam: {arch_adam}")
             print(f"   GD: lr={saved_params['gd']['learning_rate']}, batch={saved_params['gd']['batch_size']}")
             print(f"   Adam: lr={saved_params['adam']['learning_rate']}, wd={saved_params['adam']['weight_decay']}, batch={saved_params['adam']['batch_size']}")
-            args.layers = saved_arch
-            args.activations = ['relu'] * (len(saved_arch) - 2) + ['softmax']
+
+            # Store adjusted architectures for later use
+            args.saved_arch_gd = arch_gd
+            args.saved_arch_adam = arch_adam
+            args.layers = arch_adam  # Default to Adam's architecture
+            args.activations = ['relu'] * (len(arch_adam) - 2) + ['softmax']
         else:
-            # New feature engineering - use dynamic architecture based on n_features
-            n_features = info['n_features']
-            print(f"\n>> Menggunakan arsitektur baru ({n_features} features):")
-            print(f"   GD: lr={saved_params['gd']['learning_rate'] if saved_params else 0.01}, batch={saved_params['gd']['batch_size'] if saved_params else 32}")
-            print(f"   Adam: lr={saved_params['adam']['learning_rate'] if saved_params else 0.001}, wd={saved_params['adam']['weight_decay'] if saved_params else 0.01}, batch={saved_params['adam']['batch_size'] if saved_params else 16}")
+            print(f"\n>> Menggunakan arsitektur default ({n_features} features):")
+            print(f"   GD: lr=0.01, batch=32")
+            print(f"   Adam: lr=0.001, wd=0.01, batch=16")
             args.layers = [n_features, 64, 32, 2]
             args.activations = ['relu', 'relu', 'softmax']
 
@@ -300,7 +320,7 @@ def main():
         # training berbeda untuk AutodiffFFNN vs FFNN
         if args.use_autodiff:
             # training loop untuk AutodiffFFNN
-            print("\n menggunakan training loop autodiff (lebih lambat tapi edukatif)...")
+            print("\n menggunakan training loop autodiff...")
 
             history = {
                 'train_loss': [],
@@ -359,10 +379,12 @@ def main():
                 # Use saved params or args
                 gd_lr = saved_params['gd']['learning_rate'] if saved_params else args.learning_rate
                 gd_bs = saved_params['gd']['batch_size'] if saved_params else args.batch_size
+                gd_arch = getattr(args, 'saved_arch_gd', args.layers)
+                gd_activations = ['relu'] * (len(gd_arch) - 2) + ['softmax']
 
                 model_gd = FFNN(
-                    layer_sizes=args.layers,
-                    activations=args.activations,
+                    layer_sizes=gd_arch,
+                    activations=gd_activations,
                     loss_function=args.loss,
                     initializer=args.initializer,
                     learning_rate=gd_lr,
@@ -397,10 +419,12 @@ def main():
                 adam_lr = saved_params['adam']['learning_rate'] if saved_params else 0.0005
                 adam_wd = saved_params['adam']['weight_decay'] if saved_params else 0.01
                 adam_bs = saved_params['adam']['batch_size'] if saved_params else 16
+                adam_arch = getattr(args, 'saved_arch_adam', args.layers)
+                adam_activations = ['relu'] * (len(adam_arch) - 2) + ['softmax']
 
                 model_adam = FFNN(
-                    layer_sizes=args.layers,
-                    activations=args.activations,
+                    layer_sizes=adam_arch,
+                    activations=adam_activations,
                     loss_function=args.loss,
                     initializer=args.initializer,
                     learning_rate=adam_lr,

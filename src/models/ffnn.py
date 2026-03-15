@@ -301,8 +301,11 @@ class FFNN(BaseModel):
         epochs: int = 100,
         verbose: int = 1,
         optimizer=None,
-        patience: int = 10,
-        min_delta: float = 0.0001
+        patience: int = 15,
+        min_delta: float = 0.0001,
+        lr_scheduler: str = 'plateau',
+        lr_factor: float = 0.5,
+        lr_patience: int = 5
     ) -> Dict[str, List[float]]:
         """
         Latih neural network dengan mini-batch gradient descent.
@@ -319,8 +322,11 @@ class FFNN(BaseModel):
             optimizer: Instance optimizer (optional). Jika None, gunakan manual update.
             patience: Early stopping patience (epochs tanpa improvement)
             min_delta: Minimum improvement untuk dianggap sebagai improvement
+            lr_scheduler: Learning rate scheduler ('plateau' atau None)
+            lr_factor: Faktor pengurangan learning rate (default 0.5)
+            lr_patience: Epochs tanpa improvement sebelum reduce LR
 
-       回来:
+        回来:
             Dictionary berisi training history
         """
         from ..losses import MSELoss, BinaryCrossEntropyLoss, CategoricalCrossEntropyLoss
@@ -357,7 +363,8 @@ class FFNN(BaseModel):
         # Training history
         history = {
             'train_loss': [],
-            'val_loss': []
+            'val_loss': [],
+            'learning_rate': []
         }
 
         n_samples = X_train.shape[0]
@@ -367,6 +374,12 @@ class FFNN(BaseModel):
         patience_counter = 0
         best_weights = None
         best_biases = None
+
+        # Learning rate scheduler variables
+        current_lr = learning_rate
+        best_lr = learning_rate
+        lr_counter = 0
+        lr_history = [learning_rate]
 
         # Training loop
         for epoch in range(epochs):
@@ -408,8 +421,9 @@ class FFNN(BaseModel):
                 else:
                     # Manual gradient descent update (backward compatibility)
                     for i in range(len(self.weights)):
-                        self.weights[i] -= learning_rate * self.weight_gradients[i]
-                        self.biases[i] -= learning_rate * self.bias_gradients[i]
+                        # Use current_lr for weight update (supports LR scheduler)
+                        self.weights[i] -= current_lr * self.weight_gradients[i]
+                        self.biases[i] -= current_lr * self.bias_gradients[i]
 
             # Rata-rata training loss
             avg_train_loss = epoch_train_loss / n_batches
@@ -420,6 +434,7 @@ class FFNN(BaseModel):
                 y_val_pred = self.forward(X_val)
                 val_loss = loss_fn.forward(y_val, y_val_pred)
                 history['val_loss'].append(val_loss)
+                history['learning_rate'].append(current_lr)
 
                 # Early stopping check
                 if val_loss < best_val_loss - min_delta:
@@ -441,8 +456,24 @@ class FFNN(BaseModel):
                         self.weights = best_weights
                         self.biases = best_biases
                     break
+
+                # Learning Rate Scheduler (Reduce on Plateau)
+                if lr_scheduler == 'plateau' and optimizer is None:
+                    # Only for manual gradient descent
+                    if val_loss >= best_val_loss - min_delta:
+                        lr_counter += 1
+                        if lr_counter >= lr_patience:
+                            # Reduce learning rate
+                            current_lr = current_lr * lr_factor
+                            lr_history.append(current_lr)
+                            if verbose == 1:
+                                print(f"  >> Reducing LR: {current_lr:.6f}")
+                            lr_counter = 0
+                    else:
+                        lr_counter = 0
             else:
                 history['val_loss'].append(0.0)
+                history['learning_rate'].append(current_lr)
 
             # Print progress
             if verbose == 1:
