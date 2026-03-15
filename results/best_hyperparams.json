@@ -12,8 +12,8 @@
       null
     ],
     "activations": [
-      "relu",
-      "relu",
+      "elu",
+      "elu",
       "softmax"
     ],
     "initializer": "xavier",
@@ -21,11 +21,12 @@
     "learning_rate": 0.005,
     "batch_size": 32,
     "epochs": 150,
-    "accuracy": 0.7575
+    "accuracy": 0.771
   },
   "adam": {
     "layer_sizes": [
       41,
+      128,
       128,
       64,
       2
@@ -33,19 +34,21 @@
     "normalization": [
       null,
       null,
+      null,
       null
     ],
     "activations": [
       "relu",
       "relu",
+      "relu",
       "softmax"
     ],
     "initializer": "xavier",
-    "dropout_rate": 0.1,
+    "dropout_rate": 0.25,
     "learning_rate": 0.0005,
     "weight_decay": 0.01,
     "batch_size": 32,
     "epochs": 150,
-    "accuracy": 0.777
+    "accuracy": 0.773
   }
 }

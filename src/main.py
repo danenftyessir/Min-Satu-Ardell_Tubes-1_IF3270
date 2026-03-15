@@ -279,23 +279,17 @@ def main():
             }
             print(f"  regularizer: {args.regularizer} (lambda={args.lambda_param})")
 
-        # setup normalization
-        n_layers = len(args.layers) - 1  # Jumlah hidden + output layer
-        if args.normalization is None:
-            # Default: tidak ada normalization
-            normalization = [None] * n_layers
-        else:
-            # Konversi 'none' string ke None
-            normalization = []
-            for i in range(n_layers):
-                if i < len(args.normalization):
-                    norm_type = args.normalization[i]
-                    normalization.append(None if norm_type == 'none' else norm_type)
-                else:
-                    # Jika kurang, gunakan normalization terakhir
-                    normalization.append(args.normalization[-1] if args.normalization[-1] != 'none' else None)
+        # Setup normalization based on current architecture
+        # Will be adjusted per model in training loop
+        default_normalization = None
 
-            print(f"  normalization: {normalization}")
+        # Use saved normalization or default
+        if saved_params:
+            model_normalization = saved_params.get('adam', saved_params.get('gd', {})).get('normalization', [None] * (len(args.layers) - 1))
+            model_dropout = saved_params.get('adam', saved_params.get('gd', {})).get('dropout_rate', 0.0)
+        else:
+            model_normalization = [None] * (len(args.layers) - 1)
+            model_dropout = 0.0
 
         model = FFNN(
             layer_sizes=args.layers,
@@ -304,7 +298,8 @@ def main():
             initializer=args.initializer,
             learning_rate=args.learning_rate,
             regularizer=regularizer,
-            normalization=normalization
+            normalization=model_normalization,
+            dropout_rate=model_dropout
         )
 
     # 3. training
@@ -381,6 +376,13 @@ def main():
                 gd_bs = saved_params['gd']['batch_size'] if saved_params else args.batch_size
                 gd_arch = getattr(args, 'saved_arch_gd', args.layers)
                 gd_activations = ['relu'] * (len(gd_arch) - 2) + ['softmax']
+                # Use saved normalization or default
+                if saved_params:
+                    gd_normalization = saved_params['gd'].get('normalization', [None] * (len(gd_arch) - 1))
+                    gd_dropout = saved_params['gd'].get('dropout_rate', 0.0)
+                else:
+                    gd_normalization = [None] * (len(gd_arch) - 1)
+                    gd_dropout = 0.0
 
                 model_gd = FFNN(
                     layer_sizes=gd_arch,
@@ -389,7 +391,8 @@ def main():
                     initializer=args.initializer,
                     learning_rate=gd_lr,
                     regularizer=regularizer,
-                    normalization=normalization
+                    normalization=gd_normalization,
+                    dropout_rate=gd_dropout
                 )
 
                 history_gd = model_gd.train(
@@ -421,6 +424,13 @@ def main():
                 adam_bs = saved_params['adam']['batch_size'] if saved_params else 16
                 adam_arch = getattr(args, 'saved_arch_adam', args.layers)
                 adam_activations = ['relu'] * (len(adam_arch) - 2) + ['softmax']
+                # Use saved normalization or default
+                if saved_params:
+                    adam_normalization = saved_params['adam'].get('normalization', [None] * (len(adam_arch) - 1))
+                    adam_dropout = saved_params['adam'].get('dropout_rate', 0.0)
+                else:
+                    adam_normalization = [None] * (len(adam_arch) - 1)
+                    adam_dropout = 0.0
 
                 model_adam = FFNN(
                     layer_sizes=adam_arch,
@@ -429,7 +439,8 @@ def main():
                     initializer=args.initializer,
                     learning_rate=adam_lr,
                     regularizer=regularizer,
-                    normalization=normalization
+                    normalization=adam_normalization,
+                    dropout_rate=adam_dropout
                 )
 
                 adam_optimizer = Adam(learning_rate=adam_lr, weight_decay=adam_wd)

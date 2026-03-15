@@ -97,8 +97,12 @@ def tune_adam_aggressive(X_train, y_train, X_val, y_val, X_test, y_test, time_li
         n_layers = len(arch) - 1
         return ['relu'] * (n_layers - 1) + ['softmax']
 
-    # Activation - keep simple
-    activation_options = [['relu', 'relu', 'softmax']]
+    # Activation - include bonus activations
+    activation_options = [
+        ['relu', 'relu', 'softmax'],
+        ['leakyrelu', 'leakyrelu', 'softmax'],
+        ['elu', 'elu', 'softmax'],
+    ]
 
     # Initializer
     initializer_options = ['xavier']
@@ -193,8 +197,12 @@ def tune_gd_aggressive(X_train, y_train, X_val, y_val, X_test, y_test, time_limi
         [n_features, 64, 32, 2],
     ]
 
-    # Focus on dropout with best known config
-    activation_options = [['relu', 'relu', 'softmax']]
+    # Focus on dropout with best known config - include bonus activations
+    activation_options = [
+        ['relu', 'relu', 'softmax'],
+        ['leakyrelu', 'leakyrelu', 'softmax'],
+        ['elu', 'elu', 'softmax'],
+    ]
     initializer_options = ['xavier']
 
     learning_rates = [0.005]
