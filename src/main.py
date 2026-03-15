@@ -14,6 +14,7 @@ from src.models.autodiff_ffnn import AutodiffFFNN
 from src.optimizers import Adam
 from src.utils.plotting import plot_training_history
 from src.utils.pipeline import prepare_dataset, evaluate_model, save_training_artifacts
+from src.utils.io import save_training_history_to_csv, save_predictions_to_csv
 import matplotlib.pyplot as plt
 
 
@@ -595,6 +596,18 @@ def main():
     # confusion matrix
     print(f"\nconfusion matrix:")
     print(results['confusion_matrix'])
+
+    # Export ke CSV (selalu di data/)
+    print("\n[4b] EXPORT CSV")
+    print("-" * 70)
+    history_csv_path = save_training_history_to_csv(history, 'data')
+
+    test_predictions = model.predict(X_test)
+    predictions_csv_path = save_predictions_to_csv(
+        test_predictions, y_test, 'data', args.model_name
+    )
+    print(f"training history CSV: {history_csv_path}")
+    print(f"predictions CSV: {predictions_csv_path}")
 
     # 5. visualisasi
     print("\n[5] VISUALISASI")

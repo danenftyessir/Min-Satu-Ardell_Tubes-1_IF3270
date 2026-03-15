@@ -21,12 +21,11 @@
     "learning_rate": 0.005,
     "batch_size": 32,
     "epochs": 150,
-    "accuracy": 0.771
+    "accuracy": 0.7675
   },
   "adam": {
     "layer_sizes": [
       41,
-      128,
       128,
       64,
       2
@@ -34,21 +33,19 @@
     "normalization": [
       null,
       null,
-      null,
       null
     ],
     "activations": [
       "relu",
       "relu",
-      "relu",
       "softmax"
     ],
     "initializer": "xavier",
-    "dropout_rate": 0.25,
+    "dropout_rate": 0.3,
     "learning_rate": 0.0005,
     "weight_decay": 0.01,
     "batch_size": 32,
     "epochs": 150,
-    "accuracy": 0.773
+    "accuracy": 0.772
   }
 }

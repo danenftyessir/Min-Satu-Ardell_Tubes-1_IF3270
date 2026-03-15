@@ -16,6 +16,7 @@ if parent_dir not in sys.path:
 from src.models.ffnn import FFNN
 from src.utils.plotting import plot_training_history
 from src.utils.pipeline import prepare_dataset, evaluate_model, save_training_artifacts
+from src.utils.io import save_training_history_to_csv, save_predictions_to_csv
 import matplotlib.pyplot as plt
 
 
@@ -170,10 +171,21 @@ class FFNNTrainer:
         plt.savefig(plot_path, dpi=300, bbox_inches='tight')
         plt.close()
 
+        # Export training history ke CSV
+        history_csv_path = save_training_history_to_csv(history, self.output_dir)
+
+        # Export test predictions ke CSV
+        test_predictions = model.predict(self.X_test)
+        predictions_csv_path = save_predictions_to_csv(
+            test_predictions, self.y_test, self.output_dir, model_name
+        )
+
         print(f"\nSaved:")
         print(f"  Model: {model_path}")
         print(f"  History: {history_path}")
         print(f"  Plot: {plot_path}")
+        print(f"  History CSV: {history_csv_path}")
+        print(f"  Predictions CSV: {predictions_csv_path}")
 
         return {
             'name': model_name,
