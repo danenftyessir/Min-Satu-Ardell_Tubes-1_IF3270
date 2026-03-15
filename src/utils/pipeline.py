@@ -7,6 +7,7 @@ berbagai entry point untuk mengurangi redundansi kode.
 
 import os
 import sys
+import numpy as np
 from typing import Dict, Tuple, Optional
 
 # Setup project path untuk imports di module ini
@@ -131,21 +132,43 @@ def evaluate_model(
     y_val_pred = model.predict(X_val)
     y_test_pred = model.predict(X_test)
 
+    # Convert predictions from one-hot to class indices if needed
+    if len(y_train_pred.shape) > 1 and y_train_pred.shape[1] > 1:
+        y_train_pred = np.argmax(y_train_pred, axis=1)
+    if len(y_val_pred.shape) > 1 and y_val_pred.shape[1] > 1:
+        y_val_pred = np.argmax(y_val_pred, axis=1)
+    if len(y_test_pred.shape) > 1 and y_test_pred.shape[1] > 1:
+        y_test_pred = np.argmax(y_test_pred, axis=1)
+
+    # Convert y_true to 1D if needed
+    if len(y_train.shape) > 1:
+        y_train_idx = np.argmax(y_train, axis=1)
+    else:
+        y_train_idx = y_train
+    if len(y_val.shape) > 1:
+        y_val_idx = np.argmax(y_val, axis=1)
+    else:
+        y_val_idx = y_val
+    if len(y_test.shape) > 1:
+        y_test_idx = np.argmax(y_test, axis=1)
+    else:
+        y_test_idx = y_test
+
     # Basic accuracy metrics
     results = {
-        'train_accuracy': accuracy(y_train, y_train_pred),
-        'val_accuracy': accuracy(y_val, y_val_pred),
-        'test_accuracy': accuracy(y_test, y_test_pred),
+        'train_accuracy': accuracy(y_train_idx, y_train_pred),
+        'val_accuracy': accuracy(y_val_idx, y_val_pred),
+        'test_accuracy': accuracy(y_test_idx, y_test_pred),
         'train_pred': y_train_pred,
         'val_pred': y_val_pred,
         'test_pred': y_test_pred
     }
 
     # Additional metrics for test set
-    results['precision'] = precision(y_test, y_test_pred)
-    results['recall'] = recall(y_test, y_test_pred)
-    results['f1_score'] = f1_score(y_test, y_test_pred)
-    results['confusion_matrix'] = confusion_matrix(y_test, y_test_pred)
+    results['precision'] = precision(y_test_idx, y_test_pred)
+    results['recall'] = recall(y_test_idx, y_test_pred)
+    results['f1_score'] = f1_score(y_test_idx, y_test_pred)
+    results['confusion_matrix'] = confusion_matrix(y_test_idx, y_test_pred)
 
     return results
 

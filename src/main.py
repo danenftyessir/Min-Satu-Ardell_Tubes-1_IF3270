@@ -339,21 +339,55 @@ def main():
                     X_batch = X_train[start_idx:end_idx]
                     y_batch = y_train[start_idx:end_idx]
 
-                    # training step
-                    result = model.train_step(X_batch, y_batch, X_val, y_val)
+
+
+                    # training step (without validation for speed - validation done per epoch)
+                    result = model.train_step(X_batch, y_batch)
                     epoch_train_loss += result['loss']
 
                 # average metrics
                 epoch_train_loss /= n_batches
 
-                # validation
-                val_pred = model.forward(X_val)
-                val_loss = -np.mean(y_val * np.log(val_pred + 1e-15))
+                # validation (batched for speed)
+                # Compute validation loss in batches
+                val_loss = 0.0
+                val_batch_size = 512
+                for start in range(0, len(X_val), val_batch_size):
+                    end = min(start + val_batch_size, len(X_val))
+                    val_batch_pred = model.forward(X_val[start:end])
+                    if len(y_val.shape) == 1:
+                        y_val_batch = y_val[start:end]
+                        y_val_onehot = np.zeros((len(y_val_batch), val_batch_pred.shape[1]))
+                        y_val_onehot[np.arange(len(y_val_batch)), y_val_batch.astype(int)] = 1
+                        y_val_for_loss = y_val_onehot
+                    else:
+                        y_val_for_loss = y_val[start:end]
+                    val_loss += -np.mean(y_val_for_loss * np.log(val_batch_pred + 1e-15)) * (end - start)
+                val_loss /= len(X_val)
 
-                # accuracy
-                train_pred = model.forward(X_train)
-                train_acc = np.mean(np.argmax(train_pred, axis=1) == np.argmax(y_train, axis=1))
-                val_acc = np.mean(np.argmax(val_pred, axis=1) == np.argmax(y_val, axis=1))
+                # accuracy - compute every 5 epochs for speed
+                if epoch % 5 == 0 or epoch == args.epochs - 1:
+                    # Sample for speed
+                    sample_size = min(1000, len(X_train))
+                    idx = np.random.choice(len(X_train), sample_size, replace=False)
+                    train_pred = model.forward(X_train[idx])
+                    if len(y_train.shape) == 1:
+                        y_train_idx = y_train[idx].astype(int)
+                    else:
+                        y_train_idx = np.argmax(y_train[idx], axis=1)
+                    train_acc = np.mean(np.argmax(train_pred, axis=1) == y_train_idx)
+
+                    val_idx = np.random.choice(len(X_val), min(1000, len(X_val)), replace=False)
+                    val_pred = model.forward(X_val[val_idx])
+                    if len(y_val.shape) == 1:
+                        y_val_idx = y_val[val_idx].astype(int)
+                    else:
+                        y_val_idx = np.argmax(y_val[val_idx], axis=1)
+                    val_acc = np.mean(np.argmax(val_pred, axis=1) == y_val_idx)
+                else:
+                    # Use previous values
+                    train_acc = history['train_accuracy'][-1] if history['train_accuracy'] else 0.0
+                    val_acc = history['val_accuracy'][-1] if history['val_accuracy'] else 0.0
 
                 history['train_loss'].append(epoch_train_loss)
                 history['val_loss'].append(val_loss)

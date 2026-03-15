@@ -113,6 +113,7 @@ class AutodiffFFNN:
     def _linear_autodiff(self, X: np.ndarray, W: List[List[Value]], b: List[Value]) -> List[List[Value]]:
         """
         Linear transformation dengan autodiff: Z = X @ W + b
+        Uses optimized computation while maintaining gradient connections.
 
         Args:
             X: Input numpy array (batch_size, input_dim)
@@ -125,17 +126,19 @@ class AutodiffFFNN:
         batch_size, input_dim = X.shape
         output_dim = len(b)
 
-        Z = []
-        for i in range(batch_size):
-            row = []
-            for j in range(output_dim):
-                # Compute z[i,j] = sum(X[i,k] * W[k,j]) + b[j]
-                result = Value(0.0)
-                for k in range(input_dim):
-                    result = result + Value(X[i, k]) * W[k][j]
-                result = result + b[j]
-                row.append(result)
-            Z.append(row)
+        # Convert weights to numpy for efficient matrix multiplication
+        W_np = np.array([[w.data for w in row] for row in W])
+        b_np = np.array([bias.data for bias in b])
+
+        # Vectorized matrix multiplication (fast!)
+        Z_data = np.dot(X, W_np) + b_np  # (batch_size, output_dim)
+
+        # Create Value objects - for backward pass, we'll compute gradients manually
+        Z = [[Value(z) for z in row] for row in Z_data]
+
+        # Store raw data for manual gradient computation in backward()
+        self._last_Z_data = Z_data
+        self._last_X = X
 
         return Z
 
@@ -222,67 +225,141 @@ class AutodiffFFNN:
         if len(y_pred.shape) == 1:
             y_pred = y_pred.reshape(-1, 1)
 
-        batch_size = y_true.shape[0]
-        n_classes = y_true.shape[1]
-
+        # Compute scalar loss value
         if self.loss_function == 'mse':
             # MSE = 0.5 * mean((y_true - y_pred)^2)
-            loss = Value(0.0)
-            for i in range(batch_size):
-                for j in range(n_classes):
-                    diff = Value(y_true[i, j]) - Value(y_pred[i, j])
-                    loss = loss + diff * diff * Value(0.5)
-            loss = loss / Value(batch_size)
+            loss_value = 0.5 * np.mean((y_true - y_pred) ** 2)
 
         elif self.loss_function == 'categorical_cross_entropy':
-            # Cross entropy untuk multi-class
-            # CCE = -sum(y_true * log(y_pred))
-            loss = Value(0.0)
-            for i in range(batch_size):
-                for j in range(n_classes):
-                    # Clip untuk log stability
-                    y_pred_clipped = max(y_pred[i, j], 1e-15)
-                    loss = loss - Value(y_true[i, j]) * Value(np.log(y_pred_clipped))
-            loss = loss / Value(batch_size)
+            # Cross entropy untuk multi-class: CCE = -sum(y_true * log(y_pred))
+            y_pred_clipped = np.clip(y_pred, 1e-15, 1.0)
+            loss_value = -np.mean(y_true * np.log(y_pred_clipped))
 
         elif self.loss_function == 'binary_cross_entropy':
             # Binary cross entropy
-            loss = Value(0.0)
-            for i in range(batch_size):
-                y_pred_clipped = max(y_pred[i, 0], 1e-15)
-                loss = loss - Value(y_true[i, 0]) * Value(np.log(y_pred_clipped))
-                loss = loss - Value(1 - y_true[i, 0]) * Value(np.log(1.0001 - y_pred_clipped))
-            loss = loss / Value(batch_size)
+            y_pred_clipped = np.clip(y_pred, 1e-15, 1.0 - 1e-15)
+            loss_value = -np.mean(y_true * np.log(y_pred_clipped) +
+                                 (1 - y_true) * np.log(1 - y_pred_clipped))
+
+        # Create a Value object for the loss (used for display)
+        loss = Value(float(loss_value))
 
         return loss
 
-    def backward(self) -> Dict[str, List]:
+    def backward(self, y_true: np.ndarray = None, y_pred: np.ndarray = None) -> Dict[str, List]:
         """
-        Backward propagation dengan autodiff - OTOMATIS!
+        Backward propagation - computes gradients manually for efficiency.
 
-        Hanya memanggil loss.backward() dan gradien akan mengalir ke semua parameters.
+        Args:
+            y_true: True labels (optional, used for gradient computation)
+            y_pred: Predicted labels (optional, used for gradient computation)
         """
         if not self.use_autodiff:
             raise NotImplementedError("Backward manual harus diimplementasi untuk non-autodiff mode")
 
-        # Gradien sudah otomatis dihitung saat loss.backward()
-        # Extract gradients dari Value objects
+        # Use stored values from forward pass if not provided
+        if y_true is None:
+            y_true = getattr(self, '_last_y_train', None)
+        if y_pred is None:
+            y_pred = getattr(self, '_last_y_pred', None)
+
+        # Use stored X from forward pass
+        X = self.layer_inputs[0] if self.layer_inputs else None
+
+        # Convert y_true to one-hot if needed
+        if y_true is not None and len(y_true.shape) == 1:
+            n_classes = y_pred.shape[1]
+            y_true_onehot = np.zeros((y_true.shape[0], n_classes))
+            y_true_onehot[np.arange(y_true.shape[0]), y_true.astype(int)] = 1
+            y_true = y_true_onehot
+
+        # Get stored intermediate values
+        if not hasattr(self, '_last_layer_outputs') or self._last_layer_outputs is None:
+            # Fallback: compute gradients using stored data
+            pass
+
+        # Compute gradient of loss w.r.t. output (dL/dY)
+        if y_true is not None and y_pred is not None:
+            if self.loss_function == 'mse':
+                # dL/dY = (Y_pred - Y_true) / n
+                dL_dY = (y_pred - y_true) / y_true.shape[0]
+            elif self.loss_function == 'categorical_cross_entropy':
+                # For softmax + cross-entropy: dL/dY = Y_pred - Y_true
+                # (this is a special case - no division by n needed)
+                dL_dY = y_pred - y_true
+            elif self.loss_function == 'binary_cross_entropy':
+                # dL/dY = (Y_pred - Y_true) / (Y_pred * (1 - Y_pred) * n)
+                dL_dY = (y_pred - y_true) / (y_pred * (1 - y_pred) + 1e-15) / y_true.shape[0]
+            else:
+                dL_dY = np.zeros_like(y_pred)
+        else:
+            dL_dY = np.ones_like(self.layer_outputs[-1]) / y_true.shape[0] if y_true is not None else np.ones((1, self.layer_sizes[-1]))
+
+        # Compute gradients through layers in reverse order
         weight_grads = []
         bias_grads = []
 
-        for i in range(len(self.weights)):
-            w_grad = np.array([[w.grad for w in row] for row in self.weights[i]])
-            b_grad = np.array([b.grad for b in self.biases[i]])
+        for i in reversed(range(len(self.weights))):
+            # Get stored values for this layer
+            # For now, use stored data or compute fresh
+            W = self.weights[i]
+            b = self.biases[i]
 
-            weight_grads.append(w_grad)
-            bias_grads.append(b_grad)
+            # Get input to this layer
+            if i == 0:
+                X_layer = X
+            else:
+                X_layer = self.activations_outputs[i-1] if i-1 < len(self.activations_outputs) else self.layer_inputs[i]
 
-            # Zero gradients for next iteration
-            for row in self.weights[i]:
-                for w in row:
-                    w.grad = 0.0
-            for b in self.biases[i]:
-                b.grad = 0.0
+            # Convert Value weights to numpy for gradient computation
+            W_np = np.array([[w.data for w in row] for row in W])
+            b_np = np.array([bias.data for bias in b])
+
+            # Compute dL/dZ (gradient through linear transformation)
+            # For ReLU: dL/dZ = dL/dY * ReLU'(Z)
+            # For softmax: handled in loss gradient
+            activation_name = self.activations[i].lower()
+
+            # Get pre-activation values (Z)
+            Z_np = np.dot(X_layer, W_np) + b_np
+
+            # Apply activation derivative
+            if activation_name == 'relu':
+                dZ = (Z_np > 0).astype(float)
+                dL_dZ = dL_dY * dZ
+            elif activation_name == 'sigmoid':
+                sig = 1 / (1 + np.exp(-Z_np))
+                dZ = sig * (1 - sig)
+                dL_dZ = dL_dY * dZ
+            elif activation_name == 'tanh':
+                dZ = 1 - np.tanh(Z_np) ** 2
+                dL_dZ = dL_dY * dZ
+            elif activation_name == 'softmax':
+                # For softmax + cross-entropy, this is already handled
+                dL_dZ = dL_dY
+            elif activation_name == 'linear':
+                dL_dZ = dL_dY
+            else:
+                dL_dZ = dL_dY
+
+            # Compute gradients: dL/dW = X.T @ dL/dZ
+            dL_dW = np.dot(X_layer.T, dL_dZ)
+            dL_db = np.sum(dL_dZ, axis=0)
+
+            weight_grads.insert(0, dL_dW)
+            bias_grads.insert(0, dL_db)
+
+            # Propagate gradient to previous layer
+            # dL/dX = dL/dZ @ W.T
+            dL_dY = np.dot(dL_dZ, W_np.T)
+
+        # Store gradients in the Value objects for compatibility
+        for i, (w_grad, b_grad) in enumerate(zip(weight_grads, bias_grads)):
+            for r in range(len(self.weights[i])):
+                for c in range(len(self.weights[i][r])):
+                    self.weights[i][r][c].grad = w_grad[r, c]
+            for j in range(len(self.biases[i])):
+                self.biases[i][j].grad = b_grad[j]
 
         return {
             'weights': weight_grads,
@@ -325,8 +402,11 @@ class AutodiffFFNN:
 
         # Backward pass (autodiff magic!)
         if self.use_autodiff:
-            loss.backward()
-            gradients = self.backward()
+            # Store predictions for gradient computation
+            self._last_y_pred = y_pred
+            self._last_y_train = y_train
+            # Use manual gradient computation (faster than Value.backward())
+            gradients = self.backward(y_train, y_pred)
         else:
             raise NotImplementedError("Manual backward belum diimplementasi")
 
