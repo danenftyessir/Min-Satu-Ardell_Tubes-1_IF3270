@@ -298,7 +298,30 @@ class DataPreprocessor:
         # High CGPA indicator
         df_features['high_cgpa'] = (self.df['cgpa'] >= 7.5).astype(int)
 
+        # Low backlogs indicator
+        df_features['low_backlogs'] = (self.df['backlogs'] <= 1).astype(int)
+
+        # Good communication indicator
+        df_features['good_communication'] = (self.df['communication_score'] >= 6).astype(int)
+
+        # Good aptitude indicator
+        df_features['good_aptitude'] = (self.df['aptitude_score'] >= 6).astype(int)
+
+        # Total quality score
+        df_features['total_quality'] = (self.df['cgpa'] * 0.3 +
+                                        self.df['aptitude_score'] * 0.3 +
+                                        self.df['communication_score'] * 0.2 +
+                                        self.df['internship_quality_score'] * 0.2)
+
+        # Has internship indicator
+        df_features['has_internship'] = (self.df['internship_count'] > 0).astype(int)
+
+        # Excellent student indicator
+        df_features['excellent_student'] = ((self.df['cgpa'] >= 8.0) &
+                                             (self.df['backlogs'] == 0)).astype(int)
+
         print(f"   - Added interaction features: cgpa_x_aptitude, cgpa_x_communication, aptitude_x_communication, etc.")
+        print(f"   - Added indicator features: high_cgpa, low_backlogs, good_communication, etc.")
         print(f"   - Total features after engineering: {df_features.shape[1]}")
 
         # 3. siapkan fitur dan target

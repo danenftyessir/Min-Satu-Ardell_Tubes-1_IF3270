@@ -22,7 +22,8 @@ class FFNN(BaseModel):
         initializer: str = 'uniform',
         learning_rate: float = 0.01,
         regularizer: Optional[Dict] = None,
-        normalization: Optional[List[str]] = None
+        normalization: Optional[List[str]] = None,
+        dropout_rate: float = 0.0
     ):
         """
         Inisialisasi FFNN.
@@ -35,6 +36,7 @@ class FFNN(BaseModel):
             learning_rate: Learning rate untuk optimizer
             regularizer: Konfigurasi regularisasi {'type': 'l1'/'l2', 'lambda_param': float}
             normalization: List jenis normalization untuk setiap layer (None, 'rmsnorm', 'layernorm')
+            dropout_rate: Dropout rate untuk regularisasi (0.0 = no dropout)
         """
         super().__init__()
 
@@ -50,6 +52,7 @@ class FFNN(BaseModel):
         self.learning_rate = learning_rate
         self.regularizer = regularizer
         self.normalization = normalization or [None] * (len(layer_sizes) - 1)
+        self.dropout_rate = dropout_rate
 
         if len(self.normalization) != len(layer_sizes) - 1:
             raise ValueError("Jumlah normalization harus sama dengan jumlah layer - 1")
@@ -59,18 +62,20 @@ class FFNN(BaseModel):
         self.weight_gradients = []
         self.bias_gradients = []
         self.normalization_layers = []
+        self.dropout_layers = []
 
         self._initialize_parameters()
 
     def _initialize_parameters(self) -> None:
-        """Inisialisasi bobot, bias, dan normalization layers."""
+        """Inisialisasi bobot, bias, normalization layers, dan dropout layers."""
         from ..initializers import (ZeroInitializer, UniformInitializer, NormalInitializer,
                                      XavierInitializer, HeInitializer)
-        from ..layers import RMSNormLayer, LayerNormalization
+        from ..layers import RMSNormLayer, LayerNormalization, DropoutLayer
 
         self.weights = []
         self.biases = []
         self.normalization_layers = []
+        self.dropout_layers = []
 
         # Pilih initializer yang sesuai
         if self.initializer == 'zero':
@@ -108,6 +113,13 @@ class FFNN(BaseModel):
                 norm_layer = None
 
             self.normalization_layers.append(norm_layer)
+
+            # Buat dropout layer (setelah setiap hidden layer, kecuali output layer)
+            if i < len(self.layer_sizes) - 2:  # Tidak ada dropout setelah layer terakhir
+                dropout_layer = DropoutLayer(dropout_rate=self.dropout_rate)
+            else:
+                dropout_layer = None
+            self.dropout_layers.append(dropout_layer)
 
     def forward(self, X: np.ndarray) -> np.ndarray:
         """
@@ -164,6 +176,12 @@ class FFNN(BaseModel):
             # Apply activation
             current_output = activation.forward(z)
             self.activations_outputs.append(current_output)
+
+            # Apply dropout (after activation, except for output layer)
+            dropout_layer = self.dropout_layers[i]
+            if dropout_layer is not None:
+                current_output = dropout_layer.forward(current_output, training=True)
+
             self.layer_inputs.append(current_output)
 
         return current_output
@@ -227,6 +245,11 @@ class FFNN(BaseModel):
             if norm_layer is not None:
                 # Backward pass melalui normalization
                 activation_grad = norm_layer.backward(activation_grad)
+
+            # Backward pass melalui dropout layer
+            dropout_layer = self.dropout_layers[i]
+            if dropout_layer is not None:
+                activation_grad = dropout_layer.backward(activation_grad)
 
             # Input ke layer ini
             layer_input = self.layer_inputs[i]
@@ -483,6 +506,7 @@ class FFNN(BaseModel):
             'learning_rate': self.learning_rate,
             'regularizer': self.regularizer,
             'normalization': self.normalization,
+            'dropout_rate': self.dropout_rate,
             'weights': self.weights,
             'biases': self.biases,
             'normalization_params': normalization_params,
@@ -504,6 +528,7 @@ class FFNN(BaseModel):
         self.learning_rate = model_data['learning_rate']
         self.regularizer = model_data.get('regularizer', None)
         self.normalization = model_data.get('normalization', [None] * (len(self.layer_sizes) - 1))
+        self.dropout_rate = model_data.get('dropout_rate', 0.0)
         self.weights = model_data['weights']
         self.biases = model_data['biases']
         self.is_fitted = model_data['is_fitted']
@@ -525,6 +550,16 @@ class FFNN(BaseModel):
                 norm_layer = None
 
             self.normalization_layers.append(norm_layer)
+
+        # Restore dropout layers
+        from ..layers import DropoutLayer
+        self.dropout_layers = []
+        for i in range(len(self.layer_sizes) - 1):
+            if i < len(self.layer_sizes) - 2:  # No dropout after last layer
+                dropout_layer = DropoutLayer(dropout_rate=self.dropout_rate)
+            else:
+                dropout_layer = None
+            self.dropout_layers.append(dropout_layer)
 
     def plot_weight_distribution(self, layers: List[int] = None) -> None:
         """

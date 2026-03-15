@@ -1,29 +1,51 @@
 {
   "gd": {
     "layer_sizes": [
-      11,
-      64,
+      41,
       64,
       32,
       2
     ],
+    "normalization": [
+      null,
+      null,
+      null
+    ],
+    "activations": [
+      "relu",
+      "relu",
+      "softmax"
+    ],
+    "initializer": "xavier",
+    "dropout_rate": 0.0,
     "learning_rate": 0.005,
-    "batch_size": 64,
+    "batch_size": 32,
     "epochs": 150,
-    "accuracy": 0.7655
+    "accuracy": 0.7615
   },
   "adam": {
     "layer_sizes": [
-      11,
+      41,
       128,
       64,
-      32,
       2
     ],
+    "normalization": [
+      null,
+      null,
+      null
+    ],
+    "activations": [
+      "relu",
+      "relu",
+      "softmax"
+    ],
+    "initializer": "xavier",
+    "dropout_rate": 0.3,
     "learning_rate": 0.0005,
     "weight_decay": 0.01,
-    "batch_size": 16,
+    "batch_size": 32,
     "epochs": 150,
-    "accuracy": 0.7695
+    "accuracy": 0.767
   }
 }

@@ -42,16 +42,20 @@ def train_and_evaluate(optimizer_type, X_train, y_train, X_val, y_val, X_test, y
     # Get initializer from params
     initializer = params.get('initializer', 'xavier')
 
+    # Get dropout rate from params
+    dropout_rate = params.get('dropout_rate', 0.0)
+
     # Create model
     model = FFNN(
         layer_sizes=layer_sizes,
         activations=activations,
         loss_function='categorical_cross_entropy',
         initializer=initializer,
-        normalization=normalization
+        normalization=normalization,
+        dropout_rate=dropout_rate
     )
 
-    epochs = params.get('epochs', 150)
+    epochs = params.get('epochs', 200)
 
     if optimizer_type == 'adam':
         optimizer = Adam(
@@ -67,7 +71,7 @@ def train_and_evaluate(optimizer_type, X_train, y_train, X_val, y_val, X_test, y
         batch_size=params['batch_size'],
         learning_rate=params['learning_rate'],
         epochs=epochs, verbose=0, optimizer=optimizer,
-        patience=10  # Use early stopping
+        patience=20  # Use early stopping
     )
     y_pred = model.predict(X_test)
     return np.mean(y_pred == y_test), history['val_loss'][-1], history['train_loss'][-1]
@@ -79,36 +83,37 @@ def tune_adam_aggressive(X_train, y_train, X_val, y_val, X_test, y_test, time_li
     print("TUNING ADAM (NORMALIZATION + ACTIVATION + ARCHITECTURE)")
     print("="*70)
 
-    # Arsitektur dengan 35 features (sesuai preprocessing terbaru)
+    # Arsitektur lebih besar - dengan fixed activations
     n_features = X_train.shape[1]
     architectures = [
-        [n_features, 64, 32, 2],
-        [n_features, 128, 64, 32, 2],
-        [n_features, 256, 128, 64, 2],
-        [n_features, 128, 128, 64, 2],
+        [n_features, 64, 32, 2],           # 3 layers: 2 activations
+        [n_features, 128, 64, 2],           # 3 layers: 2 activations
+        [n_features, 128, 128, 64, 2],      # 4 layers: 3 activations
+        [n_features, 256, 128, 64, 2],     # 4 layers: 3 activations
     ]
 
-    # Normalization options - dynamically generate based on layer count
-    # Will be adjusted per architecture in the loop
+    # Dynamic activation based on architecture
+    def get_activations(arch):
+        n_layers = len(arch) - 1
+        return ['relu'] * (n_layers - 1) + ['softmax']
 
-    # Activation options
-    activation_options = [
-        ['relu', 'relu', 'softmax'],
-        ['leakyrelu', 'leakyrelu', 'softmax'],
-        ['elu', 'elu', 'softmax'],
-    ]
+    # Activation - keep simple
+    activation_options = [['relu', 'relu', 'softmax']]
 
-    # Initializer options
-    initializer_options = ['xavier', 'he']
+    # Initializer
+    initializer_options = ['xavier']
 
-    # Learning rates (for Adam with normalization)
-    learning_rates = [0.0005, 0.001, 0.0003]
+    # Learning rates (for Adam)
+    learning_rates = [0.0005]
 
     # Weight decay
-    weight_decays = [0.001, 0.005, 0.01]
+    weight_decays = [0.01]
 
     # Batch sizes
-    batch_sizes = [16, 32]
+    batch_sizes = [32]
+
+    # Dropout rates - main focus
+    dropout_rates = [0.0, 0.1, 0.15, 0.2, 0.25, 0.3]
 
     best_acc = 0
     best_params = {}
@@ -119,19 +124,21 @@ def tune_adam_aggressive(X_train, y_train, X_val, y_val, X_test, y_test, time_li
 
     for arch in architectures:
         n_transforms = len(arch) - 1  # number of transformations (layers - 1)
-        # Generate normalization options based on number of transformations
+        # Dynamic normalization options based on architecture depth
         normalization_options = [
-            [None] * n_transforms,
-            ['layernorm'] * n_transforms,
-            ['rmsnorm'] * n_transforms,
+            [None] * n_transforms,           # No normalization
+            ['rmsnorm'] * n_transforms,      # RMSNorm
+            ['layernorm'] * n_transforms,     # LayerNorm
         ]
+        # Dynamic activations based on architecture
+        act = get_activations(arch)
 
         for norm in normalization_options:
-            for act in activation_options:
-                for init in initializer_options:
-                    for lr in learning_rates:
-                        for wd in weight_decays:
-                            for bs in batch_sizes:
+            for init in initializer_options:
+                for lr in learning_rates:
+                    for wd in weight_decays:
+                        for bs in batch_sizes:
+                            for dr in dropout_rates:
                                 # Check time limit
                                 if time.time() - start_time > time_limit:
                                     print("Time limit reached!")
@@ -141,6 +148,7 @@ def tune_adam_aggressive(X_train, y_train, X_val, y_val, X_test, y_test, time_li
                                     'layer_sizes': arch,
                                     'normalization': norm,
                                     'activations': act,
+                                    'dropout_rate': dr,
                                     'initializer': init,
                                     'learning_rate': lr,
                                     'weight_decay': wd,
@@ -154,7 +162,8 @@ def tune_adam_aggressive(X_train, y_train, X_val, y_val, X_test, y_test, time_li
                                     )
                                     results.append((arch, norm, act, init, lr, wd, bs, acc))
 
-                                    print(f"  arch={arch}, norm={norm[0] if norm[0] else 'None'}, act={act[0]}, init={init}, lr={lr}, wd={wd}, bs={bs}: acc={acc:.4f}")
+                                    norm_str = str(norm) if norm[0] else 'None'
+                                    print(f"  arch={arch}, norm={norm_str}, act={act[0]}, init={init}, lr={lr}, wd={wd}, bs={bs}, dr={dr}: acc={acc:.4f}")
 
                                     if acc > best_acc:
                                         best_acc = acc
@@ -167,7 +176,7 @@ def tune_adam_aggressive(X_train, y_train, X_val, y_val, X_test, y_test, time_li
                                 count += 1
 
     elapsed = time.time() - start_time
-    print(f"\nBest Adam: arch={best_params['layer_sizes']}, norm={best_params['normalization']}, act={best_params['activations'][0]}, init={best_params['initializer']}, lr={best_params['learning_rate']}, wd={best_params['weight_decay']}, bs={best_params['batch_size']}, acc={best_acc:.4f}")
+    print(f"\nBest Adam: arch={best_params['layer_sizes']}, norm={best_params['normalization']}, act={best_params['activations'][0]}, init={best_params['initializer']}, lr={best_params['learning_rate']}, wd={best_params['weight_decay']}, bs={best_params['batch_size']}, dr={best_params.get('dropout_rate', 0.0)}, acc={best_acc:.4f}")
     print(f"Time: {elapsed/60:.1f} menit")
 
     return best_params, best_acc, results
@@ -176,27 +185,23 @@ def tune_adam_aggressive(X_train, y_train, X_val, y_val, X_test, y_test, time_li
 def tune_gd_aggressive(X_train, y_train, X_val, y_val, X_test, y_test, time_limit=900):
     """Tune GD dengan search space."""
     print("\n" + "="*70)
-    print("TUNING GRADIENT DESCENT (NORMALIZATION + ACTIVATION)")
+    print("TUNING GRADIENT DESCENT (FOCUS: DROPOUT)")
     print("="*70)
 
     n_features = X_train.shape[1]
     architectures = [
         [n_features, 64, 32, 2],
-        [n_features, 128, 64, 32, 2],
-        [n_features, 256, 128, 64, 2],
     ]
 
-    # Activation options
-    activation_options = [
-        ['relu', 'relu', 'softmax'],
-        ['leakyrelu', 'leakyrelu', 'softmax'],
-    ]
+    # Focus on dropout with best known config
+    activation_options = [['relu', 'relu', 'softmax']]
+    initializer_options = ['xavier']
 
-    # Initializer options
-    initializer_options = ['xavier', 'he']
+    learning_rates = [0.005]
+    batch_sizes = [32]
 
-    learning_rates = [0.005, 0.01, 0.02]
-    batch_sizes = [32, 64]
+    # Dropout rates - main focus
+    dropout_rates = [0.0, 0.1, 0.15, 0.2, 0.25, 0.3]
 
     best_acc = 0
     best_params = {}
@@ -206,10 +211,11 @@ def tune_gd_aggressive(X_train, y_train, X_val, y_val, X_test, y_test, time_limi
 
     for arch in architectures:
         n_transforms = len(arch) - 1  # number of transformations (layers - 1)
-        # Generate normalization options based on number of transformations
+        # Dynamic normalization options
         normalization_options = [
-            [None] * n_transforms,
-            ['layernorm'] * n_transforms,
+            [None] * n_transforms,           # No normalization
+            ['rmsnorm'] * n_transforms,      # RMSNorm
+            ['layernorm'] * n_transforms,     # LayerNorm
         ]
 
         for norm in normalization_options:
@@ -217,35 +223,38 @@ def tune_gd_aggressive(X_train, y_train, X_val, y_val, X_test, y_test, time_limi
                 for init in initializer_options:
                     for lr in learning_rates:
                         for bs in batch_sizes:
-                            if time.time() - start_time > time_limit:
-                                print("Time limit reached!")
-                                break
+                            for dr in dropout_rates:
+                                if time.time() - start_time > time_limit:
+                                    print("Time limit reached!")
+                                    break
 
-                            params = {
-                                'layer_sizes': arch,
-                                'normalization': norm,
-                                'activations': act,
-                                'initializer': init,
-                                'learning_rate': lr,
-                                'batch_size': bs,
-                                'epochs': 150
-                            }
+                                params = {
+                                    'layer_sizes': arch,
+                                    'normalization': norm,
+                                    'activations': act,
+                                    'initializer': init,
+                                    'learning_rate': lr,
+                                    'batch_size': bs,
+                                    'dropout_rate': dr,
+                                    'epochs': 150
+                                }
 
-                            try:
-                                acc, val_loss, train_loss = train_and_evaluate(
-                                    'gd', X_train, y_train, X_val, y_val, X_test, y_test, params
-                                )
-                                results.append((arch, norm, act, init, lr, bs, acc))
+                                try:
+                                    acc, val_loss, train_loss = train_and_evaluate(
+                                        'gd', X_train, y_train, X_val, y_val, X_test, y_test, params
+                                    )
+                                    results.append((arch, norm, act, init, lr, bs, dr, acc))
 
-                                print(f"  arch={arch}, norm={norm[0] if norm[0] else 'None'}, act={act[0]}, init={init}, lr={lr}, bs={bs}: acc={acc:.4f}")
+                                    norm_str = str(norm) if norm[0] else 'None'
+                                    print(f"  arch={arch}, norm={norm_str}, act={act[0]}, init={init}, lr={lr}, bs={bs}, dr={dr}: acc={acc:.4f}")
 
-                                if acc > best_acc:
-                                    best_acc = acc
-                                    best_params = params.copy()
-                                    print(f"    *** NEW BEST: {acc:.4f} ***")
+                                    if acc > best_acc:
+                                        best_acc = acc
+                                        best_params = params.copy()
+                                        print(f"    *** NEW BEST: {acc:.4f} ***")
 
-                            except Exception as e:
-                                print(f"  Error: {e}")
+                                except Exception as e:
+                                    print(f"  Error: {e}")
 
     elapsed = time.time() - start_time
     print(f"\nBest GD: arch={best_params['layer_sizes']}, norm={best_params['normalization']}, act={best_params['activations'][0]}, init={best_params['initializer']}, lr={best_params['learning_rate']}, bs={best_params['batch_size']}, acc={best_acc:.4f}")
@@ -266,7 +275,7 @@ def main():
     print(f"Data: train={len(X_train)}, val={len(X_val)}, test={len(X_test)}")
 
     total_start = time.time()
-    time_limit_adam = 2700  # 45 menit untuk Adam
+    time_limit_adam = 1800  # 30 menit untuk Adam
     time_limit_gd = 900     # 15 menit untuk GD
 
     # Tune Adam (more important since it's usually better)
@@ -290,6 +299,7 @@ def main():
     print(f"  Best normalization: {gd_params.get('normalization', [None, None])}")
     print(f"  Best activations: {gd_params.get('activations', ['relu', 'relu', 'softmax'])}")
     print(f"  Best initializer: {gd_params.get('initializer', 'xavier')}")
+    print(f"  Best dropout: {gd_params.get('dropout_rate', 0.0)}")
     print(f"  Best params: lr={gd_params['learning_rate']}, batch_size={gd_params['batch_size']}")
     print(f"  Best accuracy: {gd_acc:.4f} ({gd_acc*100:.2f}%)")
 
@@ -298,6 +308,7 @@ def main():
     print(f"  Best normalization: {adam_params.get('normalization', [None, None])}")
     print(f"  Best activations: {adam_params.get('activations', ['relu', 'relu', 'softmax'])}")
     print(f"  Best initializer: {adam_params.get('initializer', 'xavier')}")
+    print(f"  Best dropout: {adam_params.get('dropout_rate', 0.0)}")
     print(f"  Best params: lr={adam_params['learning_rate']}, wd={adam_params['weight_decay']}, batch_size={adam_params['batch_size']}")
     print(f"  Best accuracy: {adam_acc:.4f} ({adam_acc*100:.2f}%)")
 
@@ -311,6 +322,7 @@ def main():
             'normalization': gd_params.get('normalization', [None, None]),
             'activations': gd_params.get('activations', ['relu', 'relu', 'softmax']),
             'initializer': gd_params.get('initializer', 'xavier'),
+            'dropout_rate': gd_params.get('dropout_rate', 0.0),
             'learning_rate': gd_params['learning_rate'],
             'batch_size': gd_params['batch_size'],
             'epochs': gd_params.get('epochs', 150),
@@ -321,6 +333,7 @@ def main():
             'normalization': adam_params.get('normalization', [None, None]),
             'activations': adam_params.get('activations', ['relu', 'relu', 'softmax']),
             'initializer': adam_params.get('initializer', 'xavier'),
+            'dropout_rate': adam_params.get('dropout_rate', 0.0),
             'learning_rate': adam_params['learning_rate'],
             'weight_decay': adam_params['weight_decay'],
             'batch_size': adam_params['batch_size'],
