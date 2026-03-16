@@ -2,6 +2,7 @@ import argparse
 import os
 import sys
 import numpy as np
+import pandas as pd
 
 # setup project path untuk imports
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -16,6 +17,11 @@ from src.utils.plotting import plot_training_history
 from src.utils.pipeline import prepare_dataset, evaluate_model, save_training_artifacts
 from src.utils.io import save_training_history_to_csv, save_predictions_to_csv
 import matplotlib.pyplot as plt
+import seaborn as sns
+
+# sklearn imports for comparison
+from sklearn.neural_network import MLPClassifier
+from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, confusion_matrix
 
 
 def parse_args():
@@ -95,7 +101,7 @@ def main():
     os.makedirs(args.output_dir, exist_ok=True)
 
     print("="*70)
-    print("FEEDFORWARD NEURAL NETWORK - PROGRAM UTAMA")
+    print("FEEDFORWARD NEURAL NETWORK (From Scratch)")
     print("="*70)
 
     # 1. preprocessing
@@ -222,7 +228,6 @@ def main():
         else:
             print("\nMenggunakan parameter tersimpan...")
 
-        # Now select which optimizer to use
         print("\n" + "="*70)
         print("PILIH OPTIMIZER")
         print("="*70)
@@ -335,13 +340,8 @@ def main():
                 for batch_idx in range(n_batches):
                     start_idx = batch_idx * args.batch_size
                     end_idx = min(start_idx + args.batch_size, n_samples)
-
                     X_batch = X_train[start_idx:end_idx]
                     y_batch = y_train[start_idx:end_idx]
-
-
-
-                    # training step (without validation for speed - validation done per epoch)
                     result = model.train_step(X_batch, y_batch)
                     epoch_train_loss += result['loss']
 
@@ -630,6 +630,171 @@ def main():
     # confusion matrix
     print(f"\nconfusion matrix:")
     print(results['confusion_matrix'])
+
+    # [4c] Compare with sklearn (interactive prompt)
+    print("\n" + "="*70)
+    print("PERBANDINGAN DENGAN SKLEARN")
+    print("="*70)
+    print("[1] Bandingkan dengan sklearn MLPClassifier")
+    print("[2] Lewati")
+    print("="*70)
+    sklearn_choice = input("Masukkan pilihan [1/2]: ").strip()
+
+    if sklearn_choice == '1':
+        print("\n[4c] PERBANDINGAN DENGAN SKLEARN")
+        print("-" * 70)
+
+        # Convert one-hot to labels for sklearn
+        y_train_labels = np.argmax(y_train, axis=1) if y_train.ndim > 1 else y_train
+        y_val_labels = np.argmax(y_val, axis=1) if y_val.ndim > 1 else y_val
+        y_test_labels = np.argmax(y_test, axis=1) if y_test.ndim > 1 else y_test
+
+        # Get architecture from our model
+        if args.layers and len(args.layers) > 2:
+            sklearn_layers = tuple(args.layers[1:-1])  # Hidden layers only
+        else:
+            # Fallback: infer from data
+            sklearn_layers = (64, 32)
+            print(f"  [Note] Using default architecture {sklearn_layers}")
+
+        print(f"Training sklearn MLPClassifier...")
+        print(f"  hidden_layer_sizes: {sklearn_layers}")
+        print(f"  activation: relu")
+        print(f"  solver: adam")
+
+        mlp = MLPClassifier(
+            hidden_layer_sizes=sklearn_layers,
+            activation='relu',
+            solver='adam',
+            alpha=0.01,
+            learning_rate_init=0.001,
+            batch_size=args.batch_size,
+            max_iter=args.epochs,
+            early_stopping=True,
+            validation_fraction=0.2,
+            n_iter_no_change=15,
+            random_state=42,
+            verbose=False
+        )
+        mlp.fit(X_train, y_train_labels)
+
+        # Evaluate sklearn model
+        y_pred_sklearn_train = mlp.predict(X_train)
+        y_pred_sklearn_val = mlp.predict(X_val)
+        y_pred_sklearn_test = mlp.predict(X_test)
+
+        sklearn_results = {
+            'train_acc': accuracy_score(y_train_labels, y_pred_sklearn_train),
+            'val_acc': accuracy_score(y_val_labels, y_pred_sklearn_val),
+            'test_acc': accuracy_score(y_test_labels, y_pred_sklearn_test),
+            'precision': precision_score(y_test_labels, y_pred_sklearn_test),
+            'recall': recall_score(y_test_labels, y_pred_sklearn_test),
+            'f1': f1_score(y_test_labels, y_pred_sklearn_test),
+            'y_pred_test': y_pred_sklearn_test
+        }
+
+        print(f"\n{'Metric':<20} {'FFNN Custom':>15} {'sklearn MLP':>15}")
+        print("-" * 50)
+        print(f"{'Train Accuracy':<20} {train_acc:>15.4f} {sklearn_results['train_acc']:>15.4f}")
+        print(f"{'Val Accuracy':<20} {val_acc:>15.4f} {sklearn_results['val_acc']:>15.4f}")
+        print(f"{'Test Accuracy':<20} {test_acc:>15.4f} {sklearn_results['test_acc']:>15.4f}")
+        print(f"{'Precision':<20} {results['precision']:>15.4f} {sklearn_results['precision']:>15.4f}")
+        print(f"{'Recall':<20} {results['recall']:>15.4f} {sklearn_results['recall']:>15.4f}")
+        print(f"{'F1-Score':<20} {results['f1_score']:>15.4f} {sklearn_results['f1']:>15.4f}")
+
+        print(f"\nsklearn MLP iterations: {mlp.n_iter_}")
+
+        # Confusion matrix sklearn
+        cm_sklearn = confusion_matrix(y_test_labels, y_pred_sklearn_test)
+        print(f"\nsklearn confusion matrix:")
+        print(cm_sklearn)
+
+        # Winner
+        print("\n" + "="*70)
+        print("HASIL PERBANDINGAN")
+        print("="*70)
+        if test_acc > sklearn_results['test_acc']:
+            diff = (test_acc - sklearn_results['test_acc']) * 100
+            print(f"FFNN Custom LEBIH BAIK dari sklearn MLP!")
+            print(f"Selisih: {diff:.2f}%")
+        elif sklearn_results['test_acc'] > test_acc:
+            diff = (sklearn_results['test_acc'] - test_acc) * 100
+            print(f"sklearn MLP LEBIH BAIK dari FFNN Custom!")
+            print(f"Selisih: {diff:.2f}%")
+        else:
+            print("Keduanya memiliki performa yang SAMA!")
+        print("="*70)
+
+        # Plot comparison visualization
+        fig, axes = plt.subplots(1, 2, figsize=(14, 5))
+
+        # Confusion matrix FFNN
+        sns.heatmap(results['confusion_matrix'], annot=True, fmt='d', cmap='Blues',
+                    xticklabels=['Not Placed', 'Placed'],
+                    yticklabels=['Not Placed', 'Placed'],
+                    ax=axes[0])
+        axes[0].set_title('FFNN Custom\nConfusion Matrix')
+        axes[0].set_xlabel('Predicted')
+        axes[0].set_ylabel('Actual')
+
+        # Confusion matrix sklearn
+        sns.heatmap(cm_sklearn, annot=True, fmt='d', cmap='Oranges',
+                    xticklabels=['Not Placed', 'Placed'],
+                    yticklabels=['Not Placed', 'Placed'],
+                    ax=axes[1])
+        axes[1].set_title('sklearn MLP\nConfusion Matrix')
+        axes[1].set_xlabel('Predicted')
+        axes[1].set_ylabel('Actual')
+
+        plt.tight_layout()
+        plt.savefig(os.path.join(args.output_dir, 'sklearn_comparison_confusion.png'), dpi=300, bbox_inches='tight')
+        print(f"\nConfusion matrices saved to: {os.path.join(args.output_dir, 'sklearn_comparison_confusion.png')}")
+
+        # Bar chart comparison
+        fig, ax = plt.subplots(figsize=(10, 6))
+
+        metrics = ['Train Acc', 'Val Acc', 'Test Acc', 'Precision', 'Recall', 'F1-Score']
+        ffnn_scores = [train_acc, val_acc, test_acc, results['precision'], results['recall'], results['f1_score']]
+        mlp_scores = [sklearn_results['train_acc'], sklearn_results['val_acc'], sklearn_results['test_acc'],
+                      sklearn_results['precision'], sklearn_results['recall'], sklearn_results['f1']]
+
+        x = np.arange(len(metrics))
+        width = 0.35
+
+        bars1 = ax.bar(x - width/2, ffnn_scores, width, label='FFNN Custom', color='steelblue')
+        bars2 = ax.bar(x + width/2, mlp_scores, width, label='sklearn MLP', color='coral')
+
+        ax.set_ylabel('Score')
+        ax.set_title('Perbandingan Performa: FFNN Custom vs sklearn MLP')
+        ax.set_xticks(x)
+        ax.set_xticklabels(metrics)
+        ax.legend()
+        ax.set_ylim(0, 1.1)
+        ax.grid(True, alpha=0.3, axis='y')
+
+        for bar in bars1:
+            height = bar.get_height()
+            ax.annotate(f'{height:.3f}', xy=(bar.get_x() + bar.get_width() / 2, height),
+                       xytext=(0, 3), textcoords="offset points", ha='center', va='bottom', fontsize=8)
+
+        for bar in bars2:
+            height = bar.get_height()
+            ax.annotate(f'{height:.3f}', xy=(bar.get_x() + bar.get_width() / 2, height),
+                       xytext=(0, 3), textcoords="offset points", ha='center', va='bottom', fontsize=8)
+
+        plt.tight_layout()
+        plt.savefig(os.path.join(args.output_dir, 'sklearn_comparison.png'), dpi=300, bbox_inches='tight')
+        print(f"Performance comparison saved to: {os.path.join(args.output_dir, 'sklearn_comparison.png')}")
+
+        # Save comparison to CSV
+        comparison_df = pd.DataFrame({
+            'Metric': ['Train Accuracy', 'Val Accuracy', 'Test Accuracy', 'Precision', 'Recall', 'F1-Score'],
+            'FFNN Custom': ffnn_scores,
+            'sklearn MLP': mlp_scores
+        })
+        comparison_df['Difference'] = comparison_df['FFNN Custom'] - comparison_df['sklearn MLP']
+        comparison_df.to_csv(os.path.join(args.output_dir, 'sklearn_comparison_results.csv'), index=False)
+        print(f"Comparison results saved to: {os.path.join(args.output_dir, 'sklearn_comparison_results.csv')}")
 
     # Export ke CSV (selalu di data/)
     print("\n[4b] EXPORT CSV")

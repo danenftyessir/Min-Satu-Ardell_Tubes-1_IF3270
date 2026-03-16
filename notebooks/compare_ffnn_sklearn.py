@@ -325,7 +325,6 @@ def main():
     """Main function."""
     print("="*60)
     print("PERBANDINGAN FFNN CUSTOM vs SKLEARN MLP")
-    print("Tugas Besar 1 IF3270 Pembelajaran Mesin")
     print("="*60)
 
     data = load_and_preprocess_data()

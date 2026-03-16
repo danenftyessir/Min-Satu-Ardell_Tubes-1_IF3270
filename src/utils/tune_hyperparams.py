@@ -80,7 +80,7 @@ def train_and_evaluate(optimizer_type, X_train, y_train, X_val, y_val, X_test, y
 def tune_adam_aggressive(X_train, y_train, X_val, y_val, X_test, y_test, time_limit=1800):
     """Tune Adam dengan search space yang lebih agresif."""
     print("\n" + "="*70)
-    print("TUNING ADAM (NORMALIZATION + ACTIVATION + ARCHITECTURE)")
+    print("TUNING ADAM")
     print("="*70)
 
     # Arsitektur lebih besar - dengan fixed activations
@@ -189,7 +189,7 @@ def tune_adam_aggressive(X_train, y_train, X_val, y_val, X_test, y_test, time_li
 def tune_gd_aggressive(X_train, y_train, X_val, y_val, X_test, y_test, time_limit=900):
     """Tune GD dengan search space."""
     print("\n" + "="*70)
-    print("TUNING GRADIENT DESCENT (FOCUS: DROPOUT)")
+    print("TUNING GRADIENT DESCENT")
     print("="*70)
 
     n_features = X_train.shape[1]
@@ -269,8 +269,7 @@ def tune_gd_aggressive(X_train, y_train, X_val, y_val, X_test, y_test, time_limi
 
 def main():
     print("="*70)
-    print("AGGRESSIVE HYPERPARAMETER TUNING")
-    print("Target: >80% accuracy")
+    print("HYPERPARAMETER TUNING")
     print("="*70)
 
     # Load data

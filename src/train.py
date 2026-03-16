@@ -456,10 +456,6 @@ if __name__ == "__main__":
                         help='Example to run')
 
     args = parser.parse_args()
-
-    print("="*70)
-    print("FFNN TRAINING SCRIPT")
-    print("="*70)
     print(f"\nRunning example: {args.example}")
 
     if args.example == 'basic':
@@ -472,7 +468,3 @@ if __name__ == "__main__":
         example_learning_rate_comparison()
     elif args.example == 'regularization':
         example_regularization_comparison()
-
-    print("\n" + "="*70)
-    print("TRAINING COMPLETED!")
-    print("="*70)
